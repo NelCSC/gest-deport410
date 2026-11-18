@@ -53,6 +53,7 @@ interface InicioViewProps {
   comments: NewsComment[];
   standings: StandingRow[];
   adminUser: AdminUser | null;
+  contextBar?: React.ReactNode;
   onNavigate: (page: AppPage) => void;
   onUpdateChampionshipCover: (
     heroImageUrl: string,
@@ -94,6 +95,7 @@ export default function InicioView({
   comments,
   standings,
   adminUser,
+  contextBar,
   onNavigate,
   onUpdateChampionshipCover,
   onCreateNewsPost,
@@ -369,39 +371,57 @@ export default function InicioView({
   };
 
   return (
-    <div className="space-y-10">
-      {/* Hero Institucional U.E. 410 con Portada Personalizable */}
-      <section className="rounded-2xl overflow-hidden border border-white/[0.08] bg-[#111827]">
-        <div className="relative h-64 sm:h-80 lg:h-96 w-full bg-[#1E293B]">
+    <div className="space-y-8 sm:space-y-10">
+      {/* Hero Institucional U.E 410: Portada principal al frente en móvil y escritorio */}
+      <section className="-mx-4 -mt-6 sm:mx-0 sm:mt-0 sm:rounded-2xl overflow-hidden border-b sm:border border-white/[0.08] bg-[#111827]">
+        <div className="relative h-[360px] sm:h-[410px] lg:h-[440px] w-full bg-[#1E293B]">
           <SafeImage
             src={championship.heroImageUrl || '/images/hero-hospital-stadium.jpg'}
-            alt="Campeonato Interno de Aniversario U.E. 410 Hospital de Quillabamba"
+            alt="Campeonato Interno de Aniversario U.E 410 Hospital de Quillabamba"
             className="w-full h-full object-cover transition-all duration-300"
             style={{ objectPosition: championship.heroImagePosition || '50% 50%' }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#090E17] via-[#090E17]/60 to-[#090E17]/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#090E17] via-[#090E17]/55 to-[#090E17]/15" />
 
           {adminUser && (
             <button
               type="button"
               onClick={openCoverEditor}
-              className="absolute top-4 right-4 z-10 h-10 px-3.5 rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/35 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
+              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 min-h-[40px] px-3.5 rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/35 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
             >
               <Camera className="w-4 h-4 text-[#10B981]" />
               <span>Cambiar y posicionar portada</span>
             </button>
           )}
 
-          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10 text-[#F8FAFC]">
-            <p className="text-xs sm:text-sm font-semibold text-[#10B981] tracking-wide mb-2">
-              Aniversario U.E. 410 · Hospital de Quillabamba · Temporada {championship.seasonYear}
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 lg:p-10 text-[#F8FAFC]">
+            <p className="text-xs sm:text-sm font-semibold text-[#10B981] tracking-wide mb-1.5">
+              U.E 410 Hospital de Quillabamba · Temporada {championship.seasonYear}
             </p>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight max-w-3xl text-balance text-[#F8FAFC]">
+            <h1 className="text-2xl sm:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-[1.12] max-w-3xl text-balance text-[#F8FAFC]">
               {championship.name}
             </h1>
-            <p className="text-sm sm:text-base text-[#CBD5E1] mt-2 max-w-2xl line-clamp-2">
+            <p className="text-xs sm:text-base text-[#CBD5E1] mt-2 max-w-2xl line-clamp-2">
               {championship.description}
             </p>
+
+            <div className="flex flex-wrap items-center gap-3 sm:gap-5 mt-4">
+              <button
+                type="button"
+                onClick={() => onNavigate('programacion')}
+                className="h-11 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-xs sm:text-sm font-bold hover:bg-[#34D399] transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+              >
+                <span>Ver programación</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('posiciones')}
+                className="min-h-[44px] text-xs sm:text-sm font-semibold text-[#06B6D4] hover:text-[#22D3EE] transition-colors inline-flex items-center gap-1 whitespace-nowrap"
+              >
+                <span>Tabla de posiciones →</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -441,6 +461,9 @@ export default function InicioView({
           </div>
         </div>
       </section>
+
+      {/* Selector de campeonato / gestión justo debajo de la portada */}
+      {contextBar}
 
       {/* Dashboard Superior: Próximos Encuentros Programados */}
       <section aria-labelledby="proximos-encuentros-heading">

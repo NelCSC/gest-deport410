@@ -45,6 +45,7 @@ import {
 } from '@/lib/types';
 import ChampionshipModal from './ChampionshipModal';
 import EquiposView from './EquiposView';
+import Footer from './Footer';
 import HeaderAndNav from './HeaderAndNav';
 import InicioView from './InicioView';
 import LoginModal from './LoginModal';
@@ -650,6 +651,70 @@ export default function GestDeportApp() {
     );
   }
 
+  const championshipSwitcherControl = snapshot.championships.length > 0 && (
+    <div className="flex items-center gap-2 min-w-0">
+      <Trophy className="w-4 h-4 text-[#10B981] shrink-0" />
+      <label htmlFor="championship-switcher" className="sr-only">
+        Seleccionar campeonato activo
+      </label>
+      <select
+        id="championship-switcher"
+        value={activeChampionship?.id || ''}
+        onChange={(e) => setActiveChampionshipId(e.target.value)}
+        className="h-9 pl-2.5 pr-7 rounded-lg border border-white/[0.1] bg-[#0F172A] text-xs sm:text-sm font-semibold text-[#F8FAFC] max-w-[230px] sm:max-w-sm truncate focus:outline-none focus:border-[#10B981]"
+      >
+        {snapshot.championships.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const championshipAdminActions = (
+    <div className="flex items-center gap-3 shrink-0">
+      {adminUser ? (
+        <>
+          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-[#10B981]">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Modo Administrador · {adminUser.name}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setIsPostLoginPrompt(false);
+              setShowChampionshipModal(true);
+            }}
+            className="h-9 px-3.5 rounded-lg border border-white/[0.1] bg-[#1E293B] hover:bg-[#273549] text-xs font-semibold text-[#F8FAFC] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+          >
+            <FolderPlus className="w-3.5 h-3.5 text-[#10B981]" />
+            <span>Gestionar campeonatos</span>
+          </button>
+        </>
+      ) : (
+        <span className="text-xs text-[#94A3B8] whitespace-nowrap">
+          Modo Vista Pública
+        </span>
+      )}
+    </div>
+  );
+
+  const inlineInicioContextBar = (
+    <div className="rounded-2xl border border-white/[0.08] bg-[#111827] px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+        <span className="text-xs font-medium text-[#94A3B8] whitespace-nowrap">
+          Torneo activo
+        </span>
+        <span className="text-white/20 hidden sm:inline" aria-hidden="true">
+          ·
+        </span>
+        {championshipSwitcherControl}
+      </div>
+      {championshipAdminActions}
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-[#090E17] text-[#F8FAFC] pb-16 md:pb-0">
       <HeaderAndNav
@@ -660,65 +725,23 @@ export default function GestDeportApp() {
         onLogout={handleLogout}
       />
 
-      {/* Sub-barra de contexto institucional y selector de campeonato */}
-      <div className="bg-[#111827] border-b border-white/[0.08]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3 min-w-0">
-            <span className="text-xs font-medium text-[#94A3B8] whitespace-nowrap">
-              U.E. 410 Hospital de Quillabamba
-            </span>
-            <span className="text-white/20 hidden sm:inline" aria-hidden="true">
-              /
-            </span>
-            {snapshot.championships.length > 0 && (
-              <div className="flex items-center gap-2 min-w-0">
-                <Trophy className="w-4 h-4 text-[#10B981] shrink-0" />
-                <label htmlFor="championship-switcher" className="sr-only">
-                  Seleccionar campeonato activo
-                </label>
-                <select
-                  id="championship-switcher"
-                  value={activeChampionship?.id || ''}
-                  onChange={(e) => setActiveChampionshipId(e.target.value)}
-                  className="h-9 pl-2.5 pr-7 rounded-lg border border-white/[0.1] bg-[#0F172A] text-xs sm:text-sm font-semibold text-[#F8FAFC] max-w-[260px] sm:max-w-sm truncate focus:outline-none focus:border-[#10B981]"
-                >
-                  {snapshot.championships.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            {adminUser ? (
-              <>
-                <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-[#10B981]">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Modo Administrador · {adminUser.name}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPostLoginPrompt(false);
-                    setShowChampionshipModal(true);
-                  }}
-                  className="h-9 px-3.5 rounded-lg border border-white/[0.1] bg-[#1E293B] hover:bg-[#273549] text-xs font-semibold text-[#F8FAFC] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-                >
-                  <FolderPlus className="w-3.5 h-3.5 text-[#10B981]" />
-                  <span>Gestionar campeonatos</span>
-                </button>
-              </>
-            ) : (
-              <span className="text-xs text-[#94A3B8] whitespace-nowrap">
-                Modo Vista Pública
+      {/* Sub-barra superior en secciones secundarias o cuando no hay campeonato activo */}
+      {(activePage !== 'inicio' || !activeChampionship) && (
+        <div className="bg-[#111827] border-b border-white/[0.08]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <span className="text-xs font-medium text-[#94A3B8] whitespace-nowrap">
+                U.E 410 Hospital de Quillabamba
               </span>
-            )}
+              <span className="text-white/20 hidden sm:inline" aria-hidden="true">
+                /
+              </span>
+              {championshipSwitcherControl}
+            </div>
+            {championshipAdminActions}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Notificación flotante accesible */}
       {toastMessage && (
@@ -739,7 +762,7 @@ export default function GestDeportApp() {
               Aún no hay campeonatos registrados
             </h1>
             <p className="text-sm text-[#94A3B8] mt-1 max-w-md mx-auto">
-              Inicia sesión como administrador para crear el primer campeonato de aniversario de la U.E. 410 Hospital de Quillabamba.
+              Inicia sesión como administrador para crear el primer campeonato de aniversario de la U.E 410 Hospital de Quillabamba.
             </p>
             <button
               type="button"
@@ -770,6 +793,7 @@ export default function GestDeportApp() {
                   comments={snapshot.comments}
                   standings={standings}
                   adminUser={adminUser}
+                  contextBar={inlineInicioContextBar}
                   onNavigate={setActivePage}
                   onUpdateChampionshipCover={handleUpdateChampionshipCover}
                   onCreateNewsPost={handleCreateNewsPost}
@@ -829,17 +853,7 @@ export default function GestDeportApp() {
         )}
       </main>
 
-      {/* Footer institucional */}
-      <footer className="border-t border-white/[0.08] bg-[#111827] py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#94A3B8]">
-          <span>
-            Gest-Deport410 · U.E. 410 Hospital de Quillabamba, La Convención, Cusco
-          </span>
-          <span>
-            Campeonatos Internos de Aniversario Institucional
-          </span>
-        </div>
-      </footer>
+      <Footer onNavigate={setActivePage} />
 
       {/* Modales globales */}
       <LoginModal
