@@ -1,0 +1,6 @@
+{
+  "name": "Gest-Deport410",
+  "description": "Sistema de gestión deportiva para campeonatos internos de aniversario de la U.E. 410 Hospital de Quillabamba.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
