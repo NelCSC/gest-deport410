@@ -403,6 +403,49 @@ export function getInitialSeedData(): AppStateSnapshot {
     },
   ];
 
+  const reactions = [
+    {
+      id: 'react-1',
+      postId: 'news-3',
+      visitorId: '11111111-1111-4111-8111-111111111111',
+      reactionType: 'love' as const,
+      createdAt: '2026-11-17T10:30:00.000Z',
+    },
+    {
+      id: 'react-2',
+      postId: 'news-3',
+      visitorId: '22222222-2222-4222-8222-222222222222',
+      reactionType: 'like' as const,
+      createdAt: '2026-11-17T10:35:00.000Z',
+    },
+    {
+      id: 'react-3',
+      postId: 'news-2',
+      visitorId: '33333333-3333-4333-8333-333333333333',
+      reactionType: 'wow' as const,
+      createdAt: '2026-11-14T20:00:00.000Z',
+    },
+  ];
+
+  const comments = [
+    {
+      id: 'cmt-1',
+      postId: 'news-3',
+      visitorId: '22222222-2222-4222-8222-222222222222',
+      authorAlias: 'Barra de Emergencia',
+      content: '¡Vamos Emergencia FC con todo este miércoles en la loza del hospital!',
+      createdAt: '2026-11-17T11:05:00.000Z',
+    },
+    {
+      id: 'cmt-2',
+      postId: 'news-3',
+      visitorId: '44444444-4444-4444-8444-444444444444',
+      authorAlias: 'Visitante Anónimo',
+      content: 'Excelente organización por el aniversario de la U.E. 410.',
+      createdAt: '2026-11-17T11:20:00.000Z',
+    },
+  ];
+
   return {
     championships: [
       {
@@ -417,6 +460,8 @@ export function getInitialSeedData(): AppStateSnapshot {
         lossPoints: 0,
         liguillaQualifiers: 4,
         status: 'activo',
+        heroImageUrl: '/images/hero-hospital-stadium.jpg',
+        heroImagePosition: '50% 50%',
         createdAt: '2026-11-01T08:00:00.000Z',
       },
       {
@@ -431,6 +476,8 @@ export function getInitialSeedData(): AppStateSnapshot {
         lossPoints: 0,
         liguillaQualifiers: 4,
         status: 'activo',
+        heroImageUrl: '/images/hero-hospital-stadium.jpg',
+        heroImagePosition: '50% 50%',
         createdAt: '2026-11-02T08:00:00.000Z',
       },
     ],
@@ -438,5 +485,7 @@ export function getInitialSeedData(): AppStateSnapshot {
     players,
     matches,
     newsPosts,
+    reactions,
+    comments,
   };
 }

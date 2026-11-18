@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -9,11 +9,22 @@ import {
   Clock,
   ImagePlus,
   MapPin,
+  MessageSquare,
+  Move,
+  RotateCcw,
   Send,
   Trash2,
   X,
 } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { uploadTournamentImage } from '@/lib/cloudinary';
+import {
+  REACTION_OPTIONS,
+  ReactionType,
+  getOrCreateVisitorId,
+  sanitizePlainText,
+} from '@/lib/security';
 import {
   STAGE_LABELS,
   formatMatchDate,
@@ -25,7 +36,9 @@ import {
   AppPage,
   Championship,
   Match,
+  NewsComment,
   NewsPost,
+  NewsReaction,
   StandingRow,
   Team,
 } from '@/lib/types';
@@ -36,11 +49,40 @@ interface InicioViewProps {
   teams: Team[];
   matches: Match[];
   newsPosts: NewsPost[];
+  reactions: NewsReaction[];
+  comments: NewsComment[];
   standings: StandingRow[];
   adminUser: AdminUser | null;
   onNavigate: (page: AppPage) => void;
+  onUpdateChampionshipCover: (
+    heroImageUrl: string,
+    heroImagePosition: string
+  ) => Promise<void>;
   onCreateNewsPost: (input: Omit<NewsPost, 'id'>) => Promise<void>;
   onDeleteNewsPost: (postId: string) => Promise<void>;
+  onToggleReaction: (
+    postId: string,
+    visitorId: string,
+    reactionType: ReactionType
+  ) => Promise<void>;
+  onAddComment: (
+    postId: string,
+    visitorId: string,
+    authorAlias: string,
+    content: string,
+    honeypot: string
+  ) => Promise<void>;
+  onDeleteComment: (commentId: string) => Promise<void>;
+}
+
+function parseObjectPosition(pos: string): { x: number; y: number } {
+  const parts = pos.trim().split(/\s+/);
+  const x = parseInt(parts[0] || '50', 10);
+  const y = parseInt(parts[1] || '50', 10);
+  return {
+    x: isNaN(x) ? 50 : Math.min(100, Math.max(0, x)),
+    y: isNaN(y) ? 50 : Math.min(100, Math.max(0, y)),
+  };
 }
 
 export default function InicioView({
@@ -48,12 +90,19 @@ export default function InicioView({
   teams,
   matches,
   newsPosts,
+  reactions,
+  comments,
   standings,
   adminUser,
   onNavigate,
+  onUpdateChampionshipCover,
   onCreateNewsPost,
   onDeleteNewsPost,
+  onToggleReaction,
+  onAddComment,
+  onDeleteComment,
 }: InicioViewProps) {
+  // Publicación de noticias (Admin)
   const [commentary, setCommentary] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
@@ -61,6 +110,33 @@ export default function InicioView({
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal de personalización de portada (Admin)
+  const [showCoverModal, setShowCoverModal] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState(championship.heroImageUrl);
+  const [coverPosX, setCoverPosX] = useState(50);
+  const [coverPosY, setCoverPosY] = useState(50);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [savingCover, setSavingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  useLockBodyScroll(showCoverModal);
+
+  // Identificador anónimo del visitante en localStorage para reacciones y comentarios
+  const [visitorId, setVisitorId] = useState('');
+  useEffect(() => {
+    setVisitorId(getOrCreateVisitorId());
+  }, []);
+
+  // Estado por publicación para formulario de comentarios y feedback de errores
+  const [commentDrafts, setCommentDrafts] = useState<
+    Record<string, { alias: string; content: string; website: string }>
+  >({});
+  const [commentErrors, setCommentErrors] = useState<Record<string, string | null>>({});
+  const [commentSubmitting, setCommentSubmitting] = useState<Record<string, boolean>>({});
+  const [reactionErrors, setReactionErrors] = useState<Record<string, string | null>>({});
+  const [animatingReaction, setAnimatingReaction] = useState<string | null>(null);
 
   const teamMap = new Map(teams.map((t) => [t.id, t]));
 
@@ -84,6 +160,59 @@ export default function InicioView({
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 
+  // Handlers de portada personalizada
+  const openCoverEditor = () => {
+    const { x, y } = parseObjectPosition(championship.heroImagePosition || '50% 50%');
+    setCoverPreviewUrl(championship.heroImageUrl || '/images/hero-hospital-stadium.jpg');
+    setCoverPosX(x);
+    setCoverPosY(y);
+    setCoverFile(null);
+    setCoverError(null);
+    setShowCoverModal(true);
+  };
+
+  const handleCoverFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCoverError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setCoverError('Formato inválido. Sube una imagen JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCoverError('La imagen de portada supera el máximo de 5 MB.');
+      return;
+    }
+    setCoverFile(file);
+    setCoverPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleSaveCover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCoverError(null);
+    setSavingCover(true);
+    try {
+      let finalUrl = coverPreviewUrl || '/images/hero-hospital-stadium.jpg';
+      if (coverFile) {
+        const uploaded = await uploadTournamentImage(coverFile, 'portadas');
+        finalUrl = uploaded.url;
+      }
+      const posString = `${coverPosX}% ${coverPosY}%`;
+      await onUpdateChampionshipCover(finalUrl, posString);
+      setShowCoverModal(false);
+    } catch (err) {
+      setCoverError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo actualizar la foto de portada.'
+      );
+    } finally {
+      setSavingCover(false);
+    }
+  };
+
+  // Handlers de noticias (Admin)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormError(null);
     const file = e.target.files?.[0];
@@ -100,8 +229,7 @@ export default function InicioView({
     }
 
     setSelectedFile(file);
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const clearSelectedImage = () => {
@@ -150,17 +278,120 @@ export default function InicioView({
     }
   };
 
+  // Handlers de Reacciones y Comentarios públicos
+  const handleReactionClick = async (postId: string, type: ReactionType) => {
+    const activeVisitor = visitorId || getOrCreateVisitorId();
+    if (!activeVisitor) return;
+    setReactionErrors((prev) => ({ ...prev, [postId]: null }));
+    setAnimatingReaction(`${postId}:${type}`);
+    setTimeout(() => setAnimatingReaction(null), 320);
+
+    try {
+      await onToggleReaction(postId, activeVisitor, type);
+    } catch (err) {
+      setReactionErrors((prev) => ({
+        ...prev,
+        [postId]:
+          err instanceof Error
+            ? err.message
+            : 'No se pudo registrar tu reacción en este momento.',
+      }));
+    }
+  };
+
+  const updateDraft = (
+    postId: string,
+    field: 'alias' | 'content' | 'website',
+    value: string
+  ) => {
+    setCommentDrafts((prev) => {
+      const current = prev[postId] || { alias: '', content: '', website: '' };
+      return {
+        ...prev,
+        [postId]: { ...current, [field]: value },
+      };
+    });
+  };
+
+  const handleSubmitComment = async (e: React.FormEvent, postId: string) => {
+    e.preventDefault();
+    const draft = commentDrafts[postId] || { alias: '', content: '', website: '' };
+    setCommentErrors((prev) => ({ ...prev, [postId]: null }));
+
+    const cleanContent = sanitizePlainText(draft.content, 500);
+    if (cleanContent.length < 2) {
+      setCommentErrors((prev) => ({
+        ...prev,
+        [postId]: 'Escribe un comentario de al menos 2 caracteres.',
+      }));
+      return;
+    }
+    if (draft.content.trim().length > 500) {
+      setCommentErrors((prev) => ({
+        ...prev,
+        [postId]: 'El comentario no puede superar los 500 caracteres.',
+      }));
+      return;
+    }
+    if (draft.alias.trim().length > 30) {
+      setCommentErrors((prev) => ({
+        ...prev,
+        [postId]: 'El alias no puede superar los 30 caracteres.',
+      }));
+      return;
+    }
+
+    const activeVisitor = visitorId || getOrCreateVisitorId();
+    setCommentSubmitting((prev) => ({ ...prev, [postId]: true }));
+    try {
+      await onAddComment(
+        postId,
+        activeVisitor,
+        sanitizePlainText(draft.alias, 30),
+        cleanContent,
+        draft.website
+      );
+      setCommentDrafts((prev) => ({
+        ...prev,
+        [postId]: { alias: draft.alias, content: '', website: '' },
+      }));
+    } catch (err) {
+      setCommentErrors((prev) => ({
+        ...prev,
+        [postId]:
+          err instanceof Error
+            ? err.message
+            : 'No se pudo publicar el comentario. Intenta nuevamente.',
+      }));
+    } finally {
+      setCommentSubmitting((prev) => ({ ...prev, [postId]: false }));
+    }
+  };
+
   return (
     <div className="space-y-10">
-      {/* Hero Institucional U.E. 410 Hospital de Quillabamba */}
+      {/* Hero Institucional U.E. 410 con Portada Personalizable */}
       <section className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
         <div className="relative h-64 sm:h-80 lg:h-96 w-full">
           <SafeImage
-            src="/images/hero-hospital-stadium.jpg"
+            src={championship.heroImageUrl || '/images/hero-hospital-stadium.jpg'}
             alt="Campeonato Interno de Aniversario U.E. 410 Hospital de Quillabamba"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-all duration-300"
+            style={{ objectPosition: championship.heroImagePosition || '50% 50%' }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/20" />
+
+          {adminUser && (
+            <button
+              type="button"
+              onClick={openCoverEditor}
+              className="absolute top-4 right-4 z-10 h-10 px-3.5 rounded-xl bg-slate-950/75 hover:bg-slate-950/90 text-white border border-white/20 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
+            >
+              <Camera className="w-4 h-4 text-emerald-300" />
+              <span>Cambiar y posicionar portada</span>
+            </button>
+          )}
+
           <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10 text-white">
             <p className="text-xs sm:text-sm font-medium text-emerald-300 tracking-wide mb-2">
               Aniversario U.E. 410 · Hospital de Quillabamba · Temporada {championship.seasonYear}
@@ -174,7 +405,7 @@ export default function InicioView({
           </div>
         </div>
 
-        {/* Franja de indicadores clave con numerales tabulares */}
+        {/* Franja de indicadores clave */}
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 divide-x divide-slate-200 bg-white">
           <div className="p-4 sm:p-5">
             <p className="text-xs font-medium text-slate-500">Equipos inscritos</p>
@@ -284,9 +515,11 @@ export default function InicioView({
                           {home?.name || 'Equipo Local'}
                         </p>
                       </div>
-                      <p className="text-xs text-slate-500 truncate pl-4 mt-0.5">
-                        {home?.serviceArea}
-                      </p>
+                      {home?.serviceArea && (
+                        <p className="text-xs text-slate-500 truncate pl-4 mt-0.5">
+                          {home.serviceArea}
+                        </p>
+                      )}
                     </div>
 
                     <div className="px-3 py-1.5 rounded-xl bg-slate-100 text-center min-w-[68px]">
@@ -313,9 +546,11 @@ export default function InicioView({
                           style={{ backgroundColor: away?.primaryColor || '#059669' }}
                         />
                       </div>
-                      <p className="text-xs text-slate-500 truncate pr-4 mt-0.5">
-                        {away?.serviceArea}
-                      </p>
+                      {away?.serviceArea && (
+                        <p className="text-xs text-slate-500 truncate pr-4 mt-0.5">
+                          {away.serviceArea}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -339,7 +574,7 @@ export default function InicioView({
         )}
       </section>
 
-      {/* Sección Inferior: Noticias del Campeonato estilo Facebook */}
+      {/* Sección Inferior: Noticias estilo Facebook con Reacciones y Comentarios Públicos */}
       <section aria-labelledby="noticias-heading" className="max-w-3xl mx-auto">
         <div className="mb-5">
           <h2
@@ -349,7 +584,7 @@ export default function InicioView({
             Noticias y galería del campeonato
           </h2>
           <p className="text-sm text-slate-600 mt-0.5">
-            Crónicas, comunicados e imágenes oficiales publicadas en orden cronológico reciente.
+            Crónicas e imágenes oficiales. Reacciona y deja tus comentarios de aliento sin necesidad de registrarte.
           </p>
         </div>
 
@@ -447,7 +682,7 @@ export default function InicioView({
           </form>
         )}
 
-        {/* Feed de publicaciones estilo Facebook */}
+        {/* Feed de publicaciones */}
         {sortedNews.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
             <Camera className="w-8 h-8 text-slate-400 mx-auto mb-2" />
@@ -460,86 +695,466 @@ export default function InicioView({
           </div>
         ) : (
           <div className="space-y-6">
-            {sortedNews.map((post) => (
-              <article
-                key={post.id}
-                className="rounded-2xl border border-slate-200 bg-white overflow-hidden"
-              >
-                {/* Cabecera del post: Autor + Fecha y hora exacta */}
-                <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-[#0D5C63] text-white font-bold text-sm flex items-center justify-center shrink-0">
-                      410
+            {sortedNews.map((post) => {
+              const postReactions = reactions.filter((r) => r.postId === post.id);
+              const myReaction = postReactions.find(
+                (r) => r.visitorId === visitorId
+              )?.reactionType;
+              const postComments = comments
+                .filter((c) => c.postId === post.id)
+                .sort(
+                  (a, b) =>
+                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                );
+
+              const draft = commentDrafts[post.id] || {
+                alias: '',
+                content: '',
+                website: '',
+              };
+
+              return (
+                <article
+                  key={post.id}
+                  className="rounded-2xl border border-slate-200 bg-white overflow-hidden"
+                >
+                  {/* Cabecera del post */}
+                  <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-[#0D5C63] text-white font-bold text-sm flex items-center justify-center shrink-0">
+                        410
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 truncate">
+                          {post.authorName}
+                        </p>
+                        <p className="text-xs text-slate-500 tabular-nums">
+                          {formatNewsTimestamp(post.publishedAt)} · U.E. 410 Hospital de Quillabamba
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">
-                        {post.authorName}
-                      </p>
-                      <p className="text-xs text-slate-500 tabular-nums">
-                        {formatNewsTimestamp(post.publishedAt)} · U.E. 410 Hospital de Quillabamba
-                      </p>
-                    </div>
+
+                    {adminUser && (
+                      <div className="shrink-0">
+                        {confirmDeleteId === post.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await onDeleteNewsPost(post.id);
+                                setConfirmDeleteId(null);
+                              }}
+                              className="h-8 px-2.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors"
+                            >
+                              Confirmar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(post.id)}
+                            aria-label="Eliminar noticia"
+                            className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {adminUser && (
-                    <div className="shrink-0">
-                      {confirmDeleteId === post.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await onDeleteNewsPost(post.id);
-                              setConfirmDeleteId(null);
-                            }}
-                            className="h-8 px-2.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors"
-                          >
-                            Confirmar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteId(post.id)}
-                          aria-label="Eliminar noticia"
-                          className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                  {/* Comentario previo superior */}
+                  <div className="px-5 pb-3.5">
+                    <p className="text-sm sm:text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">
+                      {post.commentary}
+                    </p>
+                  </div>
+
+                  {/* Fotografía inferior */}
+                  {post.imageUrl && (
+                    <div className="w-full bg-slate-100 border-t border-b border-slate-100">
+                      <SafeImage
+                        src={post.imageUrl}
+                        alt={post.commentary.slice(0, 80)}
+                        className="w-full max-h-[520px] object-cover"
+                        fallbackLabel="Fotografía de noticia no disponible"
+                      />
                     </div>
                   )}
-                </div>
 
-                {/* Comentario previo superior */}
-                <div className="px-5 pb-3.5">
-                  <p className="text-sm sm:text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">
-                    {post.commentary}
-                  </p>
-                </div>
+                  {/* Barra de Reacciones Múltiples (sin necesidad de login) */}
+                  <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/40 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div
+                        className="flex flex-wrap items-center gap-2"
+                        role="group"
+                        aria-label="Reacciones a la publicación"
+                      >
+                        {REACTION_OPTIONS.map((opt) => {
+                          const count = postReactions.filter(
+                            (r) => r.reactionType === opt.type
+                          ).length;
+                          const isSelected = myReaction === opt.type;
+                          const isPopping =
+                            animatingReaction === `${post.id}:${opt.type}`;
 
-                {/* Fotografía inferior */}
-                {post.imageUrl && (
-                  <div className="w-full bg-slate-100 border-t border-slate-100">
-                    <SafeImage
-                      src={post.imageUrl}
-                      alt={post.commentary.slice(0, 80)}
-                      className="w-full max-h-[520px] object-cover"
-                      fallbackLabel="Fotografía de noticia no disponible"
-                    />
+                          return (
+                            <motion.button
+                              key={opt.type}
+                              type="button"
+                              onClick={() => handleReactionClick(post.id, opt.type)}
+                              animate={
+                                isPopping ? { scale: [1, 1.18, 1] } : { scale: 1 }
+                              }
+                              transition={{ duration: 0.25 }}
+                              className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 transition-all active:scale-95 ${
+                                isSelected
+                                  ? `${opt.activeBgClass} ${opt.activeBorderClass} ${opt.activeTextClass} font-semibold shadow-xs`
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                              }`}
+                              aria-pressed={isSelected}
+                            >
+                              <span
+                                className={`text-base leading-none transition-transform ${
+                                  isSelected ? 'scale-110' : ''
+                                }`}
+                                aria-hidden="true"
+                              >
+                                {opt.emoji}
+                              </span>
+                              <span className="whitespace-nowrap">{opt.label}</span>
+                              {count > 0 && (
+                                <span className="font-mono tabular-nums font-bold pl-0.5">
+                                  {count}
+                                </span>
+                              )}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+
+                      <span className="text-xs text-slate-500 tabular-nums inline-flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                        <span>
+                          {postComments.length}{' '}
+                          {postComments.length === 1 ? 'comentario' : 'comentarios'}
+                        </span>
+                      </span>
+                    </div>
+
+                    {reactionErrors[post.id] && (
+                      <p role="alert" className="text-xs text-red-600 font-medium">
+                        {reactionErrors[post.id]}
+                      </p>
+                    )}
                   </div>
-                )}
-              </article>
-            ))}
+
+                  {/* Sección de Comentarios Públicos */}
+                  <div className="px-5 py-4 space-y-4 bg-white">
+                    {postComments.length > 0 && (
+                      <div className="space-y-3">
+                        {postComments.map((cmt) => (
+                          <div
+                            key={cmt.id}
+                            className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-2.5 flex items-start justify-between gap-2.5"
+                          >
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex flex-wrap items-center gap-2 text-xs">
+                                <span className="font-bold text-slate-900">
+                                  {cmt.authorAlias}
+                                </span>
+                                <span className="text-slate-400" aria-hidden="true">
+                                  ·
+                                </span>
+                                <span className="text-slate-500 tabular-nums">
+                                  {formatNewsTimestamp(cmt.createdAt)}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-800 whitespace-pre-line break-words">
+                                {cmt.content}
+                              </p>
+                            </div>
+
+                            {adminUser && (
+                              <button
+                                type="button"
+                                onClick={() => onDeleteComment(cmt.id)}
+                                aria-label="Eliminar comentario"
+                                className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Formulario de comentario sin registro + Honeypot */}
+                    <form
+                      onSubmit={(e) => handleSubmitComment(e, post.id)}
+                      className="space-y-2.5 pt-1"
+                    >
+                      {commentErrors[post.id] && (
+                        <div
+                          role="alert"
+                          className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-2.5 text-xs text-red-800"
+                        >
+                          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                          <span>{commentErrors[post.id]}</span>
+                        </div>
+                      )}
+
+                      {/* Campo Honeypot anti-bots oculto para usuarios reales */}
+                      <div className="hidden" aria-hidden="true">
+                        <label htmlFor={`website-${post.id}`}>No llenar este campo</label>
+                        <input
+                          id={`website-${post.id}`}
+                          name="website"
+                          type="text"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          value={draft.website}
+                          onChange={(e) =>
+                            updateDraft(post.id, 'website', e.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-2.5">
+                        <input
+                          type="text"
+                          maxLength={30}
+                          value={draft.alias}
+                          onChange={(e) =>
+                            updateDraft(post.id, 'alias', e.target.value)
+                          }
+                          placeholder="Tu nombre o alias (opcional)"
+                          className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/20 focus:border-[#0D5C63]"
+                        />
+
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              type="text"
+                              maxLength={500}
+                              value={draft.content}
+                              onChange={(e) =>
+                                updateDraft(post.id, 'content', e.target.value)
+                              }
+                              placeholder="Escribe un comentario..."
+                              className="w-full h-10 pl-3 pr-14 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/20 focus:border-[#0D5C63]"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono tabular-nums text-slate-400">
+                              {draft.content.length}/500
+                            </span>
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={Boolean(commentSubmitting[post.id])}
+                            className="h-10 px-4 rounded-xl bg-[#0D5C63] text-white text-xs sm:text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">
+                              {commentSubmitting[post.id] ? 'Enviando...' : 'Comentar'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
+
+      {/* Modal Administrador: Cambiar y posicionar foto principal de portada */}
+      {showCoverModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cover-modal-title"
+        >
+          <div className="w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div>
+                <h2 id="cover-modal-title" className="text-lg font-bold text-slate-900">
+                  Personalizar foto principal de portada
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Sube una fotografía institucional y ajusta el encuadre exacto para el inicio.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCoverModal(false)}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSaveCover}
+              className="p-6 space-y-5 overflow-y-auto overscroll-contain flex-1"
+            >
+              {coverError && (
+                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                  <span>{coverError}</span>
+                </div>
+              )}
+
+              {/* Vista previa en vivo del encuadre */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-700">
+                  Vista previa en tiempo real ({coverPosX}% horizontal · {coverPosY}% vertical)
+                </p>
+                <div className="relative h-56 sm:h-64 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
+                  <img
+                    src={coverPreviewUrl || '/images/hero-hospital-stadium.jpg'}
+                    alt="Vista previa de portada"
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: `${coverPosX}% ${coverPosY}%` }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 right-4 text-white pointer-events-none">
+                    <p className="text-xs text-emerald-300 font-medium">
+                      U.E. 410 Hospital de Quillabamba
+                    </p>
+                    <p className="text-base font-bold truncate">{championship.name}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subir imagen o restaurar */}
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleCoverFilePick}
+                  className="hidden"
+                  id="hero-cover-upload"
+                />
+                <label
+                  htmlFor="hero-cover-upload"
+                  className="cursor-pointer h-10 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-medium text-slate-800 inline-flex items-center gap-2 transition-colors"
+                >
+                  <ImagePlus className="w-4 h-4 text-[#0D5C63]" />
+                  <span>Subir nueva foto de portada</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoverFile(null);
+                    setCoverPreviewUrl('/images/hero-hospital-stadium.jpg');
+                    setCoverPosX(50);
+                    setCoverPosY(50);
+                  }}
+                  className="h-10 px-3.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restaurar imagen predeterminada</span>
+                </button>
+              </div>
+
+              {/* Controles de posición personalizada */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-800 inline-flex items-center gap-1.5">
+                    <Move className="w-4 h-4 text-[#0D5C63]" />
+                    <span>Posición personalizada del encuadre</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { label: 'Superior', x: 50, y: 15 },
+                      { label: 'Centro', x: 50, y: 50 },
+                      { label: 'Inferior', x: 50, y: 85 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          setCoverPosX(preset.x);
+                          setCoverPosY(preset.y);
+                        }}
+                        className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-medium text-slate-700"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>Posición Horizontal (Izq ↔ Der)</span>
+                      <span className="font-mono tabular-nums font-semibold">
+                        {coverPosX}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={coverPosX}
+                      onChange={(e) => setCoverPosX(Number(e.target.value))}
+                      className="w-full accent-[#0D5C63]"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>Posición Vertical (Arriba ↔ Abajo)</span>
+                      <span className="font-mono tabular-nums font-semibold">
+                        {coverPosY}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={coverPosY}
+                      onChange={(e) => setCoverPosY(Number(e.target.value))}
+                      className="w-full accent-[#0D5C63]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCoverModal(false)}
+                  className="h-10 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCover}
+                  className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60"
+                >
+                  {savingCover ? 'Guardando portada...' : 'Guardar portada'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

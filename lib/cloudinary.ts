@@ -49,7 +49,7 @@ async function compressImageToDataUrl(file: File): Promise<string> {
  */
 export async function uploadTournamentImage(
   file: File,
-  folder: 'noticias' | 'jugadores'
+  folder: 'noticias' | 'jugadores' | 'portadas'
 ): Promise<{ url: string; source: 'cloudinary' | 'local' }> {
   const validationError = validateImageFile(file);
   if (validationError) {

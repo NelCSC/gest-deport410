@@ -1,3 +1,5 @@
+import { ReactionType } from './security';
+
 export type MatchStage =
   | 'todos_contra_todos'
   | 'liguilla'
@@ -22,6 +24,8 @@ export interface Championship {
   lossPoints: number;
   liguillaQualifiers: number;
   status: ChampionshipStatus;
+  heroImageUrl: string;
+  heroImagePosition: string; // CSS object-position e.g. "50% 45%"
   createdAt: string;
 }
 
@@ -76,6 +80,23 @@ export interface NewsPost {
   publishedAt: string; // ISO string
 }
 
+export interface NewsReaction {
+  id: string;
+  postId: string;
+  visitorId: string;
+  reactionType: ReactionType;
+  createdAt: string;
+}
+
+export interface NewsComment {
+  id: string;
+  postId: string;
+  visitorId: string;
+  authorAlias: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface StandingRow {
   position: number;
   team: Team;
@@ -103,4 +124,6 @@ export interface AppStateSnapshot {
   players: Player[];
   matches: Match[];
   newsPosts: NewsPost[];
+  reactions: NewsReaction[];
+  comments: NewsComment[];
 }

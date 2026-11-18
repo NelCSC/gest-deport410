@@ -3,12 +3,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { FolderPlus, ShieldCheck, Trophy } from 'lucide-react';
+import { ReactionType } from '@/lib/security';
 import {
   dbCreateChampionship,
   dbCreateMatches,
   dbCreateNewsPost,
   dbCreatePlayer,
   dbCreateTeam,
+  dbDeleteChampionship,
   dbDeleteMatch,
   dbDeleteNewsPost,
   dbDeletePlayer,
@@ -25,13 +27,14 @@ import {
   saveLocalAdminSession,
   saveLocalSnapshot,
 } from '@/lib/supabase';
-import { computeStandings } from '@/lib/tournament-utils';
+import { computeStandings, generateId } from '@/lib/tournament-utils';
 import {
   AdminUser,
   AppPage,
   AppStateSnapshot,
   Championship,
   Match,
+  NewsComment,
   NewsPost,
   Player,
   Team,
@@ -130,33 +133,28 @@ export default function GestDeportApp() {
         }
       });
 
-      // Suscripción en tiempo real a cambios de la base de datos
       const realtimeChannel = client
         .channel('gest-deport410-realtime')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'matches' },
-          () => refreshData()
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () =>
+          refreshData()
         )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'teams' },
-          () => refreshData()
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () =>
+          refreshData()
         )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'players' },
-          () => refreshData()
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () =>
+          refreshData()
         )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'news_posts' },
-          () => refreshData()
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'news_posts' }, () =>
+          refreshData()
         )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'championships' },
-          () => refreshData()
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'championships' }, () =>
+          refreshData()
+        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () =>
+          refreshData()
+        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () =>
+          refreshData()
         )
         .subscribe();
 
@@ -197,7 +195,6 @@ export default function GestDeportApp() {
       saveLocalAdminSession(user);
     }
     setShowLoginModal(false);
-    // Requerimiento explícito: después de logear, pedir crear o elegir campeonato
     setIsPostLoginPrompt(true);
     setShowChampionshipModal(true);
   };
@@ -212,7 +209,7 @@ export default function GestDeportApp() {
     notify('Sesión administrativa cerrada. Modo Vista Espectador activo.');
   };
 
-  // Operaciones CRUD encapsuladas por campeonato
+  // Campeonatos
   const handleCreateChampionship = async (
     input: Omit<Championship, 'id' | 'createdAt'>
   ) => {
@@ -223,6 +220,48 @@ export default function GestDeportApp() {
     }));
     setActiveChampionshipId(created.id);
     notify(`Campeonato "${created.name}" creado correctamente.`);
+  };
+
+  const handleUpdateChampionship = async (updated: Championship) => {
+    await dbUpdateChampionship(updated);
+    updateSnapshot((prev) => ({
+      ...prev,
+      championships: prev.championships.map((c) =>
+        c.id === updated.id ? updated : c
+      ),
+    }));
+    notify(`Campeonato "${updated.name}" actualizado.`);
+  };
+
+  const handleDeleteChampionship = async (championshipId: string) => {
+    await dbDeleteChampionship(championshipId);
+    let nextActive = '';
+    updateSnapshot((prev) => {
+      const remainingChamps = prev.championships.filter(
+        (c) => c.id !== championshipId
+      );
+      nextActive =
+        activeChampionshipId === championshipId
+          ? remainingChamps[0]?.id || ''
+          : activeChampionshipId;
+      const removedPostIds = new Set(
+        prev.newsPosts
+          .filter((n) => n.championshipId === championshipId)
+          .map((n) => n.id)
+      );
+      return {
+        ...prev,
+        championships: remainingChamps,
+        teams: prev.teams.filter((t) => t.championshipId !== championshipId),
+        players: prev.players.filter((p) => p.championshipId !== championshipId),
+        matches: prev.matches.filter((m) => m.championshipId !== championshipId),
+        newsPosts: prev.newsPosts.filter((n) => n.championshipId !== championshipId),
+        reactions: prev.reactions.filter((r) => !removedPostIds.has(r.postId)),
+        comments: prev.comments.filter((c) => !removedPostIds.has(c.postId)),
+      };
+    });
+    setActiveChampionshipId(nextActive);
+    notify('Campeonato eliminado correctamente.');
   };
 
   const handleUpdateChampionshipRules = async (updated: Championship) => {
@@ -236,6 +275,7 @@ export default function GestDeportApp() {
     notify('Reglas de puntaje actualizadas.');
   };
 
+  // Equipos y Jugadores
   const handleCreateTeam = async (input: Omit<Team, 'id' | 'createdAt'>) => {
     const created = await dbCreateTeam(input);
     updateSnapshot((prev) => ({
@@ -293,6 +333,7 @@ export default function GestDeportApp() {
     notify('Jugador retirado de la nómina.');
   };
 
+  // Partidos
   const handleCreateMatches = async (
     inputs: Omit<Match, 'id' | 'createdAt'>[]
   ) => {
@@ -326,6 +367,7 @@ export default function GestDeportApp() {
     notify('Encuentro eliminado de la programación.');
   };
 
+  // Noticias, Reacciones y Comentarios
   const handleCreateNewsPost = async (input: Omit<NewsPost, 'id'>) => {
     const created = await dbCreateNewsPost(input);
     updateSnapshot((prev) => ({
@@ -340,11 +382,136 @@ export default function GestDeportApp() {
     updateSnapshot((prev) => ({
       ...prev,
       newsPosts: prev.newsPosts.filter((n) => n.id !== postId),
+      reactions: prev.reactions.filter((r) => r.postId !== postId),
+      comments: prev.comments.filter((c) => c.postId !== postId),
     }));
     notify('Publicación eliminada.');
   };
 
-  // Datos filtrados estrictamente para el campeonato activo
+  const handleToggleReaction = async (
+    postId: string,
+    visitorId: string,
+    reactionType: ReactionType
+  ) => {
+    const previousReactions = snapshot?.reactions || [];
+
+    // Actualización optimista inmediata
+    updateSnapshot((prev) => {
+      const existing = prev.reactions.find(
+        (r) => r.postId === postId && r.visitorId === visitorId
+      );
+      if (existing) {
+        if (existing.reactionType === reactionType) {
+          return {
+            ...prev,
+            reactions: prev.reactions.filter((r) => r.id !== existing.id),
+          };
+        }
+        return {
+          ...prev,
+          reactions: prev.reactions.map((r) =>
+            r.id === existing.id ? { ...r, reactionType } : r
+          ),
+        };
+      }
+      return {
+        ...prev,
+        reactions: [
+          ...prev.reactions,
+          {
+            id: generateId('react'),
+            postId,
+            visitorId,
+            reactionType,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      };
+    });
+
+    const res = await fetch('/api/reactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postId, visitorId, reactionType }),
+    });
+
+    if (!res.ok) {
+      // Revertir estado optimista si el servidor rechazó (ej. Rate Limit)
+      updateSnapshot((prev) => ({ ...prev, reactions: previousReactions }));
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(
+        errData?.error || 'No se pudo procesar tu reacción. Intenta nuevamente.'
+      );
+    }
+  };
+
+  const handleAddComment = async (
+    postId: string,
+    visitorId: string,
+    authorAlias: string,
+    content: string,
+    honeypot: string
+  ) => {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        postId,
+        visitorId,
+        authorAlias,
+        content,
+        website: honeypot,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.error || 'No se pudo enviar tu comentario. Verifica los datos.'
+      );
+    }
+
+    const saved = data.comment;
+    const newComment: NewsComment = {
+      id: String(saved?.id || generateId('cmt')),
+      postId: String(saved?.post_id || postId),
+      visitorId: String(saved?.visitor_id || visitorId),
+      authorAlias: String(saved?.author_alias || authorAlias || 'Visitante Anónimo'),
+      content: String(saved?.content || content),
+      createdAt: String(saved?.created_at || new Date().toISOString()),
+    };
+
+    updateSnapshot((prev) => ({
+      ...prev,
+      comments: [...prev.comments, newComment],
+    }));
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const client = getSupabaseClient();
+    const headers: Record<string, string> = {};
+    if (client && isSupabaseConfigured) {
+      const { data } = await client.auth.getSession();
+      if (data.session?.access_token) {
+        headers.Authorization = `Bearer ${data.session.access_token}`;
+      }
+    }
+
+    const res = await fetch(`/api/comments?id=${encodeURIComponent(commentId)}`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    if (res.ok) {
+      updateSnapshot((prev) => ({
+        ...prev,
+        comments: prev.comments.filter((c) => c.id !== commentId),
+      }));
+      notify('Comentario eliminado.');
+    }
+  };
+
+  // Datos filtrados para el campeonato activo
   const activeChampionship = useMemo(() => {
     if (!snapshot) return null;
     return (
@@ -353,6 +520,26 @@ export default function GestDeportApp() {
       null
     );
   }, [snapshot, activeChampionshipId]);
+
+  const handleUpdateChampionshipCover = async (
+    heroImageUrl: string,
+    heroImagePosition: string
+  ) => {
+    if (!activeChampionship) return;
+    const updated: Championship = {
+      ...activeChampionship,
+      heroImageUrl,
+      heroImagePosition,
+    };
+    await dbUpdateChampionship(updated);
+    updateSnapshot((prev) => ({
+      ...prev,
+      championships: prev.championships.map((c) =>
+        c.id === updated.id ? updated : c
+      ),
+    }));
+    notify('Portada del inicio actualizada correctamente.');
+  };
 
   const scopedTeams = useMemo(() => {
     if (!snapshot || !activeChampionship) return [];
@@ -465,7 +652,7 @@ export default function GestDeportApp() {
                   className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                 >
                   <FolderPlus className="w-3.5 h-3.5 text-[#0D5C63]" />
-                  <span>Nuevo campeonato</span>
+                  <span>Gestionar campeonatos</span>
                 </button>
               </>
             ) : (
@@ -523,11 +710,17 @@ export default function GestDeportApp() {
                   teams={scopedTeams}
                   matches={scopedMatches}
                   newsPosts={scopedNews}
+                  reactions={snapshot.reactions}
+                  comments={snapshot.comments}
                   standings={standings}
                   adminUser={adminUser}
                   onNavigate={setActivePage}
+                  onUpdateChampionshipCover={handleUpdateChampionshipCover}
                   onCreateNewsPost={handleCreateNewsPost}
                   onDeleteNewsPost={handleDeleteNewsPost}
+                  onToggleReaction={handleToggleReaction}
+                  onAddComment={handleAddComment}
+                  onDeleteComment={handleDeleteComment}
                 />
               )}
 
@@ -572,7 +765,7 @@ export default function GestDeportApp() {
         )}
       </main>
 
-      {/* Footer institucional sobrio */}
+      {/* Footer institucional */}
       <footer className="border-t border-slate-200 bg-white py-6 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <span>
@@ -604,6 +797,8 @@ export default function GestDeportApp() {
           notify('Campeonato seleccionado.');
         }}
         onCreateChampionship={handleCreateChampionship}
+        onUpdateChampionship={handleUpdateChampionship}
+        onDeleteChampionship={handleDeleteChampionship}
         isPostLoginPrompt={isPostLoginPrompt}
       />
     </div>

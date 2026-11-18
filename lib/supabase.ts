@@ -4,12 +4,15 @@ import {
   AppStateSnapshot,
   Championship,
   Match,
+  NewsComment,
   NewsPost,
+  NewsReaction,
   Player,
   Team,
 } from './types';
 import { getInitialSeedData } from './seed-data';
 import { generateId } from './tournament-utils';
+import { ReactionType } from './security';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -43,7 +46,22 @@ export function loadLocalSnapshot(): AppStateSnapshot {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(seed));
       return seed;
     }
-    return JSON.parse(raw) as AppStateSnapshot;
+    const parsed = JSON.parse(raw) as Partial<AppStateSnapshot>;
+    const seed = getInitialSeedData();
+
+    return {
+      championships: (parsed.championships || seed.championships).map((c) => ({
+        ...c,
+        heroImageUrl: c.heroImageUrl || '/images/hero-hospital-stadium.jpg',
+        heroImagePosition: c.heroImagePosition || '50% 50%',
+      })),
+      teams: parsed.teams || seed.teams,
+      players: parsed.players || seed.players,
+      matches: parsed.matches || seed.matches,
+      newsPosts: parsed.newsPosts || seed.newsPosts,
+      reactions: Array.isArray(parsed.reactions) ? parsed.reactions : seed.reactions,
+      comments: Array.isArray(parsed.comments) ? parsed.comments : seed.comments,
+    };
   } catch {
     return getInitialSeedData();
   }
@@ -90,6 +108,8 @@ function mapChampionshipFromDb(row: Record<string, unknown>): Championship {
     lossPoints: Number(row.loss_points ?? 0),
     liguillaQualifiers: Number(row.liguilla_qualifiers ?? 4),
     status: (row.status as Championship['status']) ?? 'activo',
+    heroImageUrl: String(row.hero_image_url ?? '/images/hero-hospital-stadium.jpg'),
+    heroImagePosition: String(row.hero_image_position ?? '50% 50%'),
     createdAt: String(row.created_at ?? new Date().toISOString()),
   };
 }
@@ -99,7 +119,7 @@ function mapTeamFromDb(row: Record<string, unknown>): Team {
     id: String(row.id),
     championshipId: String(row.championship_id),
     name: String(row.name),
-    serviceArea: String(row.service_area),
+    serviceArea: String(row.service_area ?? ''),
     primaryColor: String(row.primary_color ?? '#0D5C63'),
     responsible1Name: String(row.responsible_1_name),
     responsible1Phone: String(row.responsible_1_phone ?? ''),
@@ -132,8 +152,14 @@ function mapMatchFromDb(row: Record<string, unknown>): Match {
     matchday: Number(row.matchday ?? 1),
     homeTeamId: String(row.home_team_id),
     awayTeamId: String(row.away_team_id),
-    homeScore: row.home_score === null || row.home_score === undefined ? null : Number(row.home_score),
-    awayScore: row.away_score === null || row.away_score === undefined ? null : Number(row.away_score),
+    homeScore:
+      row.home_score === null || row.home_score === undefined
+        ? null
+        : Number(row.home_score),
+    awayScore:
+      row.away_score === null || row.away_score === undefined
+        ? null
+        : Number(row.away_score),
     scheduledAt: String(row.scheduled_at),
     venue: String(row.venue ?? 'Loza Deportiva U.E. 410'),
     status: row.status as Match['status'],
@@ -153,17 +179,41 @@ function mapNewsFromDb(row: Record<string, unknown>): NewsPost {
   };
 }
 
+function mapReactionFromDb(row: Record<string, unknown>): NewsReaction {
+  return {
+    id: String(row.id),
+    postId: String(row.post_id),
+    visitorId: String(row.visitor_id),
+    reactionType: row.reaction_type as ReactionType,
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  };
+}
+
+function mapCommentFromDb(row: Record<string, unknown>): NewsComment {
+  return {
+    id: String(row.id),
+    postId: String(row.post_id),
+    visitorId: String(row.visitor_id),
+    authorAlias: String(row.author_alias ?? 'Visitante Anónimo'),
+    content: String(row.content ?? ''),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  };
+}
+
 export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | null> {
   const client = getSupabaseClient();
   if (!client) return null;
 
-  const [champRes, teamsRes, playersRes, matchesRes, newsRes] = await Promise.all([
-    client.from('championships').select('*').order('created_at', { ascending: false }),
-    client.from('teams').select('*').order('created_at', { ascending: true }),
-    client.from('players').select('*').order('jersey_number', { ascending: true }),
-    client.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    client.from('news_posts').select('*').order('published_at', { ascending: false }),
-  ]);
+  const [champRes, teamsRes, playersRes, matchesRes, newsRes, reactionsRes, commentsRes] =
+    await Promise.all([
+      client.from('championships').select('*').order('created_at', { ascending: false }),
+      client.from('teams').select('*').order('created_at', { ascending: true }),
+      client.from('players').select('*').order('jersey_number', { ascending: true }),
+      client.from('matches').select('*').order('scheduled_at', { ascending: true }),
+      client.from('news_posts').select('*').order('published_at', { ascending: false }),
+      client.from('reactions').select('*'),
+      client.from('comments').select('*').order('created_at', { ascending: true }),
+    ]);
 
   if (champRes.error || teamsRes.error || playersRes.error || matchesRes.error || newsRes.error) {
     throw new Error(
@@ -182,6 +232,8 @@ export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | nul
     players: (playersRes.data || []).map(mapPlayerFromDb),
     matches: (matchesRes.data || []).map(mapMatchFromDb),
     newsPosts: (newsRes.data || []).map(mapNewsFromDb),
+    reactions: reactionsRes.error ? [] : (reactionsRes.data || []).map(mapReactionFromDb),
+    comments: commentsRes.error ? [] : (commentsRes.data || []).map(mapCommentFromDb),
   };
 }
 
@@ -204,6 +256,8 @@ export async function dbCreateChampionship(
       loss_points: input.lossPoints,
       liguilla_qualifiers: input.liguillaQualifiers,
       status: input.status,
+      hero_image_url: input.heroImageUrl,
+      hero_image_position: input.heroImagePosition,
     })
     .select()
     .single();
@@ -226,8 +280,20 @@ export async function dbUpdateChampionship(champ: Championship): Promise<void> {
       loss_points: champ.lossPoints,
       liguilla_qualifiers: champ.liguillaQualifiers,
       status: champ.status,
+      hero_image_url: champ.heroImageUrl,
+      hero_image_position: champ.heroImagePosition,
     })
     .eq('id', champ.id);
+  if (error) throw new Error(error.message);
+}
+
+export async function dbDeleteChampionship(championshipId: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { error } = await client
+    .from('championships')
+    .delete()
+    .eq('id', championshipId);
   if (error) throw new Error(error.message);
 }
 

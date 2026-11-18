@@ -14,6 +14,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { uploadTournamentImage } from '@/lib/cloudinary';
 import {
   HOSPITAL_SERVICE_AREAS,
@@ -54,9 +55,10 @@ export default function EquiposView({
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [showNewTeamModal, setShowNewTeamModal] = useState(false);
 
-  // Form: Nuevo Equipo
+  useLockBodyScroll(Boolean(showNewTeamModal || selectedTeamId));
+
+  // Form: Nuevo Equipo (sin servicio o área principal)
   const [teamName, setTeamName] = useState('');
-  const [teamArea, setTeamArea] = useState(HOSPITAL_SERVICE_AREAS[0]);
   const [teamColor, setTeamColor] = useState(TEAM_PALETTE_OPTIONS[0].hex);
   const [resp1Name, setResp1Name] = useState('');
   const [resp1Phone, setResp1Phone] = useState('');
@@ -155,7 +157,7 @@ export default function EquiposView({
       await onCreateTeam({
         championshipId: championship.id,
         name: teamName.trim(),
-        serviceArea: teamArea,
+        serviceArea: '',
         primaryColor: teamColor,
         responsible1Name: resp1Name.trim(),
         responsible1Phone: resp1Phone.trim(),
@@ -432,9 +434,11 @@ export default function EquiposView({
                     <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                       {team.name}
                     </h2>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                      {team.serviceArea}
-                    </p>
+                    {team.serviceArea && (
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        {team.serviceArea}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -470,7 +474,7 @@ export default function EquiposView({
       {/* Modal: Registrar Nuevo Equipo */}
       {showNewTeamModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
@@ -507,44 +511,25 @@ export default function EquiposView({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Servicio o área principal *
-                  </label>
-                  <select
-                    value={teamArea}
-                    onChange={(e) => setTeamArea(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
-                  >
-                    {HOSPITAL_SERVICE_AREAS.map((area) => (
-                      <option key={area} value={area}>
-                        {area}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Color distintivo
-                  </label>
-                  <div className="flex items-center gap-2 h-11">
-                    {TEAM_PALETTE_OPTIONS.map((col) => (
-                      <button
-                        key={col.hex}
-                        type="button"
-                        onClick={() => setTeamColor(col.hex)}
-                        title={col.label}
-                        className={`w-7 h-7 rounded-lg transition-transform ${
-                          teamColor === col.hex
-                            ? 'ring-2 ring-offset-2 ring-slate-900 scale-110'
-                            : 'opacity-80 hover:opacity-100'
-                        }`}
-                        style={{ backgroundColor: col.hex }}
-                      />
-                    ))}
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Color distintivo
+                </label>
+                <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+                  {TEAM_PALETTE_OPTIONS.map((col) => (
+                    <button
+                      key={col.hex}
+                      type="button"
+                      onClick={() => setTeamColor(col.hex)}
+                      title={col.label}
+                      className={`w-7 h-7 rounded-lg transition-transform ${
+                        teamColor === col.hex
+                          ? 'ring-2 ring-offset-2 ring-slate-900 scale-110'
+                          : 'opacity-80 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: col.hex }}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -626,13 +611,13 @@ export default function EquiposView({
       {/* Modal Detallado e Intuitivo de Equipo y Jugadores */}
       {selectedTeam && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
           <div className="w-full max-w-3xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
             {/* Cabecera Equipo */}
-            <div className="px-6 py-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50/70">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50/70 shrink-0">
               <div className="flex items-center gap-3.5 min-w-0">
                 <div
                   className="w-12 h-12 rounded-xl text-white font-bold text-base flex items-center justify-center shrink-0"
@@ -649,7 +634,8 @@ export default function EquiposView({
                     {selectedTeam.name}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-600 truncate">
-                    {selectedTeam.serviceArea} · Resp. 1: {selectedTeam.responsible1Name}
+                    {selectedTeam.serviceArea ? `${selectedTeam.serviceArea} · ` : ''}
+                    Resp. 1: {selectedTeam.responsible1Name}
                     {selectedTeam.responsible1Phone ? ` (${selectedTeam.responsible1Phone})` : ''}
                     {selectedTeam.responsible2Name ? ` · Resp. 2: ${selectedTeam.responsible2Name}` : ''}
                   </p>

@@ -29,6 +29,7 @@ import {
   StandingRow,
   Team,
 } from '@/lib/types';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 
 interface ProgramacionViewProps {
   championship: Championship;
@@ -66,6 +67,10 @@ export default function ProgramacionView({
   const [showRoundRobinModal, setShowRoundRobinModal] = useState(false);
   const [showKnockoutModal, setShowKnockoutModal] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+
+  useLockBodyScroll(
+    Boolean(showCreateModal || showRoundRobinModal || showKnockoutModal || editingMatch)
+  );
 
   // Create Match form
   const [homeId, setHomeId] = useState('');
@@ -502,7 +507,7 @@ export default function ProgramacionView({
       {/* Modal: Programar partido individual */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
@@ -655,7 +660,7 @@ export default function ProgramacionView({
       {/* Modal: Generador Todos contra Todos */}
       {showRoundRobinModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
@@ -723,7 +728,7 @@ export default function ProgramacionView({
       {/* Modal: Avanzar a Liguilla / Semifinales / Final */}
       {showKnockoutModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
@@ -853,7 +858,7 @@ export default function ProgramacionView({
       {/* Modal: Registrar resultado / Editar partido */}
       {editingMatch && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >

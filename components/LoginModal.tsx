@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AlertCircle, Eye, EyeOff, Lock, ShieldCheck, X } from 'lucide-react';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 import { AdminUser } from '@/lib/types';
 
@@ -16,6 +17,7 @@ export default function LoginModal({
   onClose,
   onLoginSuccess,
 }: LoginModalProps) {
+  useLockBodyScroll(isOpen);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

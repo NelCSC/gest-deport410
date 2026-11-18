@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle2, FolderPlus, Trophy, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Edit3,
+  FolderPlus,
+  Trash2,
+  Trophy,
+  X,
+} from 'lucide-react';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { Championship } from '@/lib/types';
 
 interface ChampionshipModalProps {
@@ -13,6 +23,8 @@ interface ChampionshipModalProps {
   onCreateChampionship: (
     data: Omit<Championship, 'id' | 'createdAt'>
   ) => Promise<void>;
+  onUpdateChampionship: (champ: Championship) => Promise<void>;
+  onDeleteChampionship: (championshipId: string) => Promise<void>;
   isPostLoginPrompt?: boolean;
 }
 
@@ -32,8 +44,15 @@ export default function ChampionshipModal({
   activeChampionshipId,
   onSelectExisting,
   onCreateChampionship,
+  onUpdateChampionship,
+  onDeleteChampionship,
   isPostLoginPrompt = false,
 }: ChampionshipModalProps) {
+  useLockBodyScroll(isOpen);
+
+  const [editingChamp, setEditingChamp] = useState<Championship | null>(null);
+  const [confirmDeleteChamp, setConfirmDeleteChamp] = useState<Championship | null>(null);
+
   const [name, setName] = useState('');
   const [sport, setSport] = useState('Fulbito');
   const [seasonYear, setSeasonYear] = useState(2026);
@@ -47,7 +66,34 @@ export default function ChampionshipModal({
 
   if (!isOpen) return null;
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setEditingChamp(null);
+    setName('');
+    setSport('Fulbito');
+    setSeasonYear(2026);
+    setDescription('');
+    setWinPoints(3);
+    setDrawPoints(1);
+    setLossPoints(0);
+    setLiguillaQualifiers(4);
+    setError(null);
+  };
+
+  const startEditChampionship = (champ: Championship) => {
+    setConfirmDeleteChamp(null);
+    setEditingChamp(champ);
+    setName(champ.name);
+    setSport(champ.sport);
+    setSeasonYear(champ.seasonYear);
+    setDescription(champ.description);
+    setWinPoints(champ.winPoints);
+    setDrawPoints(champ.drawPoints);
+    setLossPoints(champ.lossPoints);
+    setLiguillaQualifiers(champ.liguillaQualifiers);
+    setError(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -60,10 +106,12 @@ export default function ChampionshipModal({
     }
     if (
       existingChampionships.some(
-        (c) => c.name.trim().toLowerCase() === trimmedName.toLowerCase()
+        (c) =>
+          c.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
+          c.id !== editingChamp?.id
       )
     ) {
-      setError('Ya existe un campeonato registrado con ese nombre. Elige un nombre diferente.');
+      setError('Ya existe otro campeonato registrado con ese nombre.');
       return;
     }
     if (winPoints <= drawPoints || drawPoints < lossPoints || lossPoints < 0) {
@@ -75,27 +123,66 @@ export default function ChampionshipModal({
 
     setSaving(true);
     try {
-      await onCreateChampionship({
-        name: trimmedName,
-        sport,
-        seasonYear,
-        description:
-          description.trim() ||
-          `Campeonato institucional de ${sport} · U.E. 410 Hospital de Quillabamba.`,
-        winPoints,
-        drawPoints,
-        lossPoints,
-        liguillaQualifiers,
-        status: 'activo',
-      });
-      setName('');
-      setDescription('');
-      onClose();
+      if (editingChamp) {
+        await onUpdateChampionship({
+          ...editingChamp,
+          name: trimmedName,
+          sport,
+          seasonYear,
+          description:
+            description.trim() ||
+            `Campeonato institucional de ${sport} · U.E. 410 Hospital de Quillabamba.`,
+          winPoints,
+          drawPoints,
+          lossPoints,
+          liguillaQualifiers,
+        });
+        resetForm();
+      } else {
+        await onCreateChampionship({
+          name: trimmedName,
+          sport,
+          seasonYear,
+          description:
+            description.trim() ||
+            `Campeonato institucional de ${sport} · U.E. 410 Hospital de Quillabamba.`,
+          winPoints,
+          drawPoints,
+          lossPoints,
+          liguillaQualifiers,
+          status: 'activo',
+          heroImageUrl: '/images/hero-hospital-stadium.jpg',
+          heroImagePosition: '50% 50%',
+        });
+        resetForm();
+        onClose();
+      }
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : 'No se pudo crear el campeonato. Intenta nuevamente.'
+          : 'No se pudo guardar la información del campeonato.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteChamp) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onDeleteChampionship(confirmDeleteChamp.id);
+      if (editingChamp?.id === confirmDeleteChamp.id) {
+        resetForm();
+      }
+      setConfirmDeleteChamp(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo eliminar el campeonato.'
       );
     } finally {
       setSaving(false);
@@ -104,13 +191,13 @@ export default function ChampionshipModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
       role="dialog"
       aria-modal="true"
       aria-labelledby="championship-modal-title"
     >
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-6">
-        <div className="px-6 py-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50/70">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
+        <div className="px-6 py-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50/70 shrink-0">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-[#0D5C63] mb-1">
               <Trophy className="w-4 h-4" />
@@ -124,7 +211,7 @@ export default function ChampionshipModal({
               id="championship-modal-title"
               className="text-xl font-bold text-slate-900"
             >
-              Crear o seleccionar campeonato
+              Crear, editar o seleccionar campeonato
             </h2>
             <p className="text-sm text-slate-600 mt-0.5">
               Cada campeonato encapsula sus propios equipos, jugadores, programación, noticias y tabla de posiciones.
@@ -132,7 +219,11 @@ export default function ChampionshipModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              resetForm();
+              setConfirmDeleteChamp(null);
+              onClose();
+            }}
             aria-label="Cerrar modal"
             className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-800 transition-colors"
           >
@@ -140,41 +231,116 @@ export default function ChampionshipModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-6 space-y-6 overflow-y-auto overscroll-contain flex-1">
+          {/* Alerta característica de confirmación de eliminación */}
+          {confirmDeleteChamp && (
+            <div
+              role="alertdialog"
+              aria-labelledby="delete-champ-warning-title"
+              className="rounded-2xl border border-red-300 bg-red-50 p-4 space-y-3"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <h3
+                    id="delete-champ-warning-title"
+                    className="text-sm font-bold text-red-900"
+                  >
+                    Advertencia: ¿Eliminar campeonato permanentemente?
+                  </h3>
+                  <p className="text-xs sm:text-sm text-red-800 mt-1 leading-relaxed">
+                    Estás a punto de eliminar{' '}
+                    <strong>&ldquo;{confirmDeleteChamp.name}&rdquo;</strong>. Esta acción borrará todos sus equipos, nóminas de jugadores, programación, resultados y noticias asociadas, y no se puede deshacer.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteChamp(null)}
+                  disabled={saving}
+                  className="h-9 px-3.5 rounded-xl border border-red-200 bg-white text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={saving}
+                  className="h-9 px-4 rounded-xl bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 disabled:opacity-60 inline-flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{saving ? 'Eliminando...' : 'Sí, eliminar campeonato'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {existingChampionships.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-slate-800 mb-2.5">
-                Continuar gestionando un campeonato existente
+                Campeonatos registrados ({existingChampionships.length})
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {existingChampionships.map((c) => {
                   const isActive = c.id === activeChampionshipId;
+                  const isBeingEdited = editingChamp?.id === c.id;
                   return (
-                    <button
+                    <div
                       key={c.id}
-                      type="button"
-                      onClick={() => {
-                        onSelectExisting(c.id);
-                        onClose();
-                      }}
-                      className={`text-left p-3.5 rounded-xl border transition-colors ${
-                        isActive
+                      className={`p-3.5 rounded-xl border transition-colors flex flex-col justify-between gap-2.5 ${
+                        isBeingEdited
+                          ? 'border-amber-400 bg-amber-50/50'
+                          : isActive
                           ? 'border-[#0D5C63] bg-teal-50/70'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-semibold text-slate-900 line-clamp-1">
-                          {c.name}
-                        </span>
-                        {isActive && (
-                          <CheckCircle2 className="w-4 h-4 text-[#0D5C63] shrink-0 mt-0.5" />
-                        )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectExisting(c.id);
+                          onClose();
+                        }}
+                        className="text-left w-full"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-semibold text-slate-900 line-clamp-1">
+                            {c.name}
+                          </span>
+                          {isActive && (
+                            <CheckCircle2 className="w-4 h-4 text-[#0D5C63] shrink-0 mt-0.5" />
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                          {c.sport} · {c.seasonYear} · {c.winPoints}/{c.drawPoints}/{c.lossPoints} pts
+                        </p>
+                      </button>
+
+                      <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => startEditChampionship(c)}
+                          title="Editar datos del campeonato"
+                          className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[#0D5C63]" />
+                          <span>Editar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmDeleteChamp(c);
+                            setError(null);
+                          }}
+                          title="Eliminar campeonato"
+                          className="h-8 px-2.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-xs font-medium text-red-600 inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Eliminar</span>
+                        </button>
                       </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {c.sport} · Temporada {c.seasonYear} · {c.winPoints}/{c.drawPoints}/{c.lossPoints} pts
-                      </p>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -182,12 +348,32 @@ export default function ChampionshipModal({
           )}
 
           <div className="border-t border-slate-200 pt-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-[#0D5C63]" />
-              <span>Crear nuevo campeonato o liga</span>
-            </h3>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                {editingChamp ? (
+                  <>
+                    <Edit3 className="w-4 h-4 text-[#0D5C63]" />
+                    <span>Editando: {editingChamp.name}</span>
+                  </>
+                ) : (
+                  <>
+                    <FolderPlus className="w-4 h-4 text-[#0D5C63]" />
+                    <span>Crear nuevo campeonato o liga</span>
+                  </>
+                )}
+              </h3>
+              {editingChamp && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-800 underline underline-offset-2"
+                >
+                  Cancelar edición (crear nuevo)
+                </button>
+              )}
+            </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div
                   role="alert"
@@ -318,17 +504,24 @@ export default function ChampionshipModal({
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => {
+                    resetForm();
+                    onClose();
+                  }}
                   className="h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Cancelar
+                  Cerrar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="h-11 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60 transition-colors whitespace-nowrap"
                 >
-                  {saving ? 'Creando...' : 'Crear campeonato'}
+                  {saving
+                    ? 'Guardando...'
+                    : editingChamp
+                    ? 'Guardar cambios'
+                    : 'Crear campeonato'}
                 </button>
               </div>
             </form>
