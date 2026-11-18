@@ -482,6 +482,141 @@ export function getInitialSeedData(): AppStateSnapshot {
     },
   ];
 
+  const matchGoals = [
+    // m-1: Cirugía (4) vs Farmacia (1)
+    {
+      id: 'goal-1',
+      championshipId: champ1Id,
+      matchId: 'm-1',
+      teamId: 'team-cirugia',
+      playerId: 'pl-4',
+      goalsCount: 3,
+      createdAt: '2026-11-10T16:25:00.000Z',
+    },
+    {
+      id: 'goal-2',
+      championshipId: champ1Id,
+      matchId: 'm-1',
+      teamId: 'team-cirugia',
+      playerId: 'pl-5',
+      goalsCount: 1,
+      createdAt: '2026-11-10T16:25:00.000Z',
+    },
+    {
+      id: 'goal-3',
+      championshipId: champ1Id,
+      matchId: 'm-1',
+      teamId: 'team-farmacia',
+      playerId: 'pl-9',
+      goalsCount: 1,
+      createdAt: '2026-11-10T16:25:00.000Z',
+    },
+    // m-2: Emergencia (3) vs Administración (2)
+    {
+      id: 'goal-4',
+      championshipId: champ1Id,
+      matchId: 'm-2',
+      teamId: 'team-emergencia',
+      playerId: 'pl-1',
+      goalsCount: 2,
+      createdAt: '2026-11-10T17:25:00.000Z',
+    },
+    {
+      id: 'goal-5',
+      championshipId: champ1Id,
+      matchId: 'm-2',
+      teamId: 'team-emergencia',
+      playerId: 'pl-3',
+      goalsCount: 1,
+      createdAt: '2026-11-10T17:25:00.000Z',
+    },
+    {
+      id: 'goal-6',
+      championshipId: champ1Id,
+      matchId: 'm-2',
+      teamId: 'team-admin',
+      playerId: 'pl-8',
+      goalsCount: 2,
+      createdAt: '2026-11-10T17:25:00.000Z',
+    },
+    // m-3: Pediatría (2) vs Laboratorio (2)
+    {
+      id: 'goal-7',
+      championshipId: champ1Id,
+      matchId: 'm-3',
+      teamId: 'team-pediatria',
+      playerId: 'pl-6',
+      goalsCount: 2,
+      createdAt: '2026-11-10T18:25:00.000Z',
+    },
+    {
+      id: 'goal-8',
+      championshipId: champ1Id,
+      matchId: 'm-3',
+      teamId: 'team-laboratorio',
+      playerId: 'pl-7',
+      goalsCount: 2,
+      createdAt: '2026-11-10T18:25:00.000Z',
+    },
+    // m-4: Emergencia (2) vs Pediatría (1)
+    {
+      id: 'goal-9',
+      championshipId: champ1Id,
+      matchId: 'm-4',
+      teamId: 'team-emergencia',
+      playerId: 'pl-1',
+      goalsCount: 1,
+      createdAt: '2026-11-14T16:25:00.000Z',
+    },
+    {
+      id: 'goal-10',
+      championshipId: champ1Id,
+      matchId: 'm-4',
+      teamId: 'team-emergencia',
+      playerId: 'pl-3',
+      goalsCount: 1,
+      createdAt: '2026-11-14T16:25:00.000Z',
+    },
+    {
+      id: 'goal-11',
+      championshipId: champ1Id,
+      matchId: 'm-4',
+      teamId: 'team-pediatria',
+      playerId: 'pl-6',
+      goalsCount: 1,
+      createdAt: '2026-11-14T16:25:00.000Z',
+    },
+    // m-5: Cirugía (1) vs Laboratorio (1)
+    {
+      id: 'goal-12',
+      championshipId: champ1Id,
+      matchId: 'm-5',
+      teamId: 'team-cirugia',
+      playerId: 'pl-4',
+      goalsCount: 1,
+      createdAt: '2026-11-14T17:25:00.000Z',
+    },
+    {
+      id: 'goal-13',
+      championshipId: champ1Id,
+      matchId: 'm-5',
+      teamId: 'team-laboratorio',
+      playerId: 'pl-7',
+      goalsCount: 1,
+      createdAt: '2026-11-14T17:25:00.000Z',
+    },
+    // m-6: Administración (3) vs Farmacia (0)
+    {
+      id: 'goal-14',
+      championshipId: champ1Id,
+      matchId: 'm-6',
+      teamId: 'team-admin',
+      playerId: 'pl-8',
+      goalsCount: 3,
+      createdAt: '2026-11-14T18:25:00.000Z',
+    },
+  ];
+
   return {
     championships: [
       {
@@ -524,5 +659,6 @@ export function getInitialSeedData(): AppStateSnapshot {
     reactions,
     comments,
     matchCards,
+    matchGoals,
   };
 }

@@ -1,4 +1,13 @@
-import { Championship, Match, MatchStage, StandingRow, Team } from './types';
+import {
+  Championship,
+  Match,
+  MatchGoal,
+  MatchStage,
+  Player,
+  StandingRow,
+  Team,
+  TopScorerRow,
+} from './types';
 
 export const STAGE_LABELS: Record<MatchStage, string> = {
   todos_contra_todos: 'Todos contra Todos',
@@ -222,6 +231,85 @@ export function computeStandings(
   return rows.map((row, idx) => ({
     ...row,
     position: idx + 1,
+  }));
+}
+
+/**
+ * Calcula la Tabla de Goleadores en orden descendente sincronizada con los partidos finalizados.
+ */
+export function computeTopScorers(
+  players: Player[],
+  teams: Team[],
+  matches: Match[],
+  matchGoals: MatchGoal[],
+  stageFilter: 'todas' | 'todos_contra_todos' | 'fase_final' = 'todas'
+): TopScorerRow[] {
+  const playerMap = new Map(players.map((p) => [p.id, p]));
+  const teamMap = new Map(teams.map((t) => [t.id, t]));
+  const finalizedMatchIds = new Set(
+    matches
+      .filter((m) => {
+        if (m.status !== 'finalizado') return false;
+        if (stageFilter === 'todos_contra_todos') {
+          return m.stage === 'todos_contra_todos';
+        }
+        if (stageFilter === 'fase_final') {
+          return m.stage !== 'todos_contra_todos';
+        }
+        return true;
+      })
+      .map((m) => m.id)
+  );
+
+  const tallyMap = new Map<
+    string,
+    {
+      player: Player;
+      team: Team;
+      goals: number;
+      matchIds: Set<string>;
+    }
+  >();
+
+  for (const g of matchGoals) {
+    if (!finalizedMatchIds.has(g.matchId) || g.goalsCount <= 0) continue;
+    const player = playerMap.get(g.playerId);
+    const team = teamMap.get(g.teamId);
+    if (!player || !team) continue;
+
+    const existing = tallyMap.get(player.id);
+    if (existing) {
+      existing.goals += g.goalsCount;
+      existing.matchIds.add(g.matchId);
+    } else {
+      tallyMap.set(player.id, {
+        player,
+        team,
+        goals: g.goalsCount,
+        matchIds: new Set([g.matchId]),
+      });
+    }
+  }
+
+  const rows: TopScorerRow[] = Array.from(tallyMap.values())
+    .map((entry) => ({
+      rank: 0,
+      player: entry.player,
+      team: entry.team,
+      goals: entry.goals,
+      matchesWithGoals: entry.matchIds.size,
+    }))
+    .sort((a, b) => {
+      if (b.goals !== a.goals) return b.goals - a.goals;
+      if (a.matchesWithGoals !== b.matchesWithGoals) {
+        return a.matchesWithGoals - b.matchesWithGoals;
+      }
+      return a.player.fullName.localeCompare(b.player.fullName, 'es');
+    });
+
+  return rows.map((row, index) => ({
+    ...row,
+    rank: index + 1,
   }));
 }
 

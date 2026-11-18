@@ -11,7 +11,12 @@ export type MatchStatus = 'programado' | 'en_juego' | 'finalizado';
 
 export type ChampionshipStatus = 'activo' | 'finalizado';
 
-export type AppPage = 'inicio' | 'programacion' | 'equipos' | 'posiciones';
+export type AppPage =
+  | 'inicio'
+  | 'programacion'
+  | 'equipos'
+  | 'posiciones'
+  | 'goleadores';
 
 export interface Championship {
   id: string;
@@ -102,6 +107,16 @@ export interface MatchCard {
   createdAt: string;
 }
 
+export interface MatchGoal {
+  id: string;
+  championshipId: string;
+  matchId: string;
+  teamId: string;
+  playerId: string;
+  goalsCount: number;
+  createdAt: string;
+}
+
 export interface NewsComment {
   id: string;
   postId: string;
@@ -125,6 +140,14 @@ export interface StandingRow {
   recentForm: ('G' | 'E' | 'P')[];
 }
 
+export interface TopScorerRow {
+  rank: number;
+  player: Player;
+  team: Team;
+  goals: number;
+  matchesWithGoals: number;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -141,4 +164,5 @@ export interface AppStateSnapshot {
   reactions: NewsReaction[];
   comments: NewsComment[];
   matchCards: MatchCard[];
+  matchGoals: MatchGoal[];
 }

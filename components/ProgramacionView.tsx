@@ -9,8 +9,10 @@ import {
   Edit3,
   GitBranch,
   MapPin,
+  Minus,
   Plus,
   Sparkles,
+  Target,
   Trash2,
   X,
 } from 'lucide-react';
@@ -28,6 +30,7 @@ import {
   Championship,
   Match,
   MatchCard,
+  MatchGoal,
   MatchStage,
   MatchStatus,
   Player,
@@ -42,6 +45,7 @@ interface ProgramacionViewProps {
   players: Player[];
   matches: Match[];
   matchCards: MatchCard[];
+  matchGoals: MatchGoal[];
   standings: StandingRow[];
   adminUser: AdminUser | null;
   onCreateMatches: (inputs: Omit<Match, 'id' | 'createdAt'>[]) => Promise<void>;
@@ -50,6 +54,10 @@ interface ProgramacionViewProps {
   onCreateMatchCard: (input: Omit<MatchCard, 'id' | 'createdAt'>) => Promise<void>;
   onUpdateMatchCard: (card: MatchCard) => Promise<void>;
   onDeleteMatchCard: (cardId: string) => Promise<void>;
+  onSyncMatchGoals: (
+    matchId: string,
+    goals: { teamId: string; playerId: string; goalsCount: number }[]
+  ) => Promise<void>;
 }
 
 const STAGE_TABS: { id: 'todos' | MatchStage; label: string }[] = [
@@ -66,6 +74,7 @@ export default function ProgramacionView({
   players,
   matches,
   matchCards,
+  matchGoals,
   standings,
   adminUser,
   onCreateMatches,
@@ -74,6 +83,7 @@ export default function ProgramacionView({
   onCreateMatchCard,
   onUpdateMatchCard,
   onDeleteMatchCard,
+  onSyncMatchGoals,
 }: ProgramacionViewProps) {
   const [stageFilter, setStageFilter] = useState<'todos' | MatchStage>('todos');
 
@@ -125,6 +135,15 @@ export default function ProgramacionView({
   const [cardNotes, setCardNotes] = useState('');
   const [cardError, setCardError] = useState<string | null>(null);
   const [savingCard, setSavingCard] = useState(false);
+
+  // Form goleadores dentro del modal de resultado
+  const [draftGoals, setDraftGoals] = useState<
+    { teamId: string; playerId: string; goalsCount: number }[]
+  >([]);
+  const [goalTeamId, setGoalTeamId] = useState('');
+  const [goalPlayerId, setGoalPlayerId] = useState('');
+  const [goalCountInput, setGoalCountInput] = useState('1');
+  const [goalError, setGoalError] = useState<string | null>(null);
 
   const teamMap = new Map(teams.map((t) => [t.id, t]));
   const playerMap = new Map(players.map((p) => [p.id, p]));
@@ -259,7 +278,7 @@ export default function ProgramacionView({
     setEditDateTime(localIso);
     setEditVenue(match.venue);
 
-    // Preseleccionar equipo y primer jugador para amonestaciones
+    // Preseleccionar equipo y primer jugador para amonestaciones y goles
     const defaultTeam = match.homeTeamId;
     setCardTeamId(defaultTeam);
     const defaultPlayers = players
@@ -270,6 +289,19 @@ export default function ProgramacionView({
     setCardRegularized(false);
     setCardNotes('');
     setCardError(null);
+
+    const existingMatchGoals = matchGoals
+      .filter((g) => g.matchId === match.id)
+      .map((g) => ({
+        teamId: g.teamId,
+        playerId: g.playerId,
+        goalsCount: g.goalsCount,
+      }));
+    setDraftGoals(existingMatchGoals);
+    setGoalTeamId(defaultTeam);
+    setGoalPlayerId(defaultPlayers[0]?.id || '');
+    setGoalCountInput('1');
+    setGoalError(null);
   };
 
   const handleCardTeamChange = (newTeamId: string) => {
@@ -279,6 +311,128 @@ export default function ProgramacionView({
       .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
     setCardPlayerId(roster[0]?.id || '');
     setCardError(null);
+  };
+
+  const handleGoalTeamChange = (newTeamId: string) => {
+    setGoalTeamId(newTeamId);
+    const roster = players
+      .filter((p) => p.teamId === newTeamId)
+      .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+    setGoalPlayerId(roster[0]?.id || '');
+    setGoalError(null);
+  };
+
+  const handleAddDraftGoal = () => {
+    if (!editingMatch) return;
+    setGoalError(null);
+
+    if (editStatus === 'programado') {
+      setGoalError(
+        'Cambia el estado del partido a En Juego o Finalizado e ingresa el marcador para asignar goles.'
+      );
+      return;
+    }
+
+    if (!goalTeamId || !goalPlayerId) {
+      setGoalError(
+        'Este equipo aún no tiene jugadores registrados en su nómina para asignar goles.'
+      );
+      return;
+    }
+
+    const count = Number(goalCountInput);
+    if (!Number.isInteger(count) || count < 1) {
+      setGoalError('Ingresa una cantidad entera de goles mayor o igual a 1.');
+      return;
+    }
+
+    const isHome = goalTeamId === editingMatch.homeTeamId;
+    const teamName = teamMap.get(goalTeamId)?.name || (isHome ? 'Local' : 'Visitante');
+    const targetTeamScore = Number(isHome ? editHomeScore : editAwayScore);
+
+    if (
+      (isHome ? editHomeScore : editAwayScore) === '' ||
+      !Number.isInteger(targetTeamScore) ||
+      targetTeamScore < 0
+    ) {
+      setGoalError(
+        `Ingresa un marcador válido para ${teamName} antes de asignar goleadores.`
+      );
+      return;
+    }
+
+    if (targetTeamScore === 0) {
+      setGoalError(
+        `El marcador de ${teamName} está en 0. Incrementa primero los goles del equipo en el marcador superior.`
+      );
+      return;
+    }
+
+    const currentTeamSum = draftGoals
+      .filter((g) => g.teamId === goalTeamId)
+      .reduce((sum, g) => sum + g.goalsCount, 0);
+
+    if (currentTeamSum + count > targetTeamScore) {
+      setGoalError(
+        `La suma de goles de jugadores en ${teamName} (${currentTeamSum + count}) no puede ser mayor a los goles del equipo (${targetTeamScore}).`
+      );
+      return;
+    }
+
+    setDraftGoals((prev) => {
+      const existing = prev.find((g) => g.playerId === goalPlayerId);
+      if (existing) {
+        return prev.map((g) =>
+          g.playerId === goalPlayerId
+            ? { ...g, goalsCount: g.goalsCount + count }
+            : g
+        );
+      }
+      return [...prev, { teamId: goalTeamId, playerId: goalPlayerId, goalsCount: count }];
+    });
+    setGoalCountInput('1');
+  };
+
+  const handleAdjustDraftGoal = (playerId: string, delta: number) => {
+    if (!editingMatch) return;
+    setGoalError(null);
+    const entry = draftGoals.find((g) => g.playerId === playerId);
+    if (!entry) return;
+
+    if (delta > 0) {
+      const isHome = entry.teamId === editingMatch.homeTeamId;
+      const teamName =
+        teamMap.get(entry.teamId)?.name || (isHome ? 'Local' : 'Visitante');
+      const targetTeamScore = Number(isHome ? editHomeScore : editAwayScore);
+      const currentTeamSum = draftGoals
+        .filter((g) => g.teamId === entry.teamId)
+        .reduce((sum, g) => sum + g.goalsCount, 0);
+
+      if (
+        !Number.isInteger(targetTeamScore) ||
+        currentTeamSum + delta > targetTeamScore
+      ) {
+        setGoalError(
+          `La suma de goles de jugadores en ${teamName} no puede superar los ${targetTeamScore || 0} goles del equipo.`
+        );
+        return;
+      }
+    }
+
+    setDraftGoals((prev) =>
+      prev
+        .map((g) =>
+          g.playerId === playerId
+            ? { ...g, goalsCount: g.goalsCount + delta }
+            : g
+        )
+        .filter((g) => g.goalsCount > 0)
+    );
+  };
+
+  const handleRemoveDraftGoal = (playerId: string) => {
+    setGoalError(null);
+    setDraftGoals((prev) => prev.filter((g) => g.playerId !== playerId));
   };
 
   const handleAddMatchCard = async () => {
@@ -348,6 +502,52 @@ export default function ProgramacionView({
       }
     }
 
+    const homeName = teamMap.get(editingMatch.homeTeamId)?.name || 'Local';
+    const awayName = teamMap.get(editingMatch.awayTeamId)?.name || 'Visitante';
+    const homeSum = draftGoals
+      .filter((g) => g.teamId === editingMatch.homeTeamId)
+      .reduce((sum, g) => sum + g.goalsCount, 0);
+    const awaySum = draftGoals
+      .filter((g) => g.teamId === editingMatch.awayTeamId)
+      .reduce((sum, g) => sum + g.goalsCount, 0);
+
+    if (editStatus === 'programado' && draftGoals.length > 0) {
+      setEditError(
+        'Un partido en estado Programado no puede tener goles asignados a jugadores. Cambia el estado o elimina los goles registrados.'
+      );
+      return;
+    }
+
+    if (editStatus === 'en_juego') {
+      if (parsedHome !== null && homeSum > parsedHome) {
+        setEditError(
+          `La suma de goles de jugadores en ${homeName} (${homeSum}) supera el marcador actual (${parsedHome}).`
+        );
+        return;
+      }
+      if (parsedAway !== null && awaySum > parsedAway) {
+        setEditError(
+          `La suma de goles de jugadores en ${awayName} (${awaySum}) supera el marcador actual (${parsedAway}).`
+        );
+        return;
+      }
+    }
+
+    if (editStatus === 'finalizado') {
+      if (parsedHome !== null && homeSum !== parsedHome) {
+        setEditError(
+          `La suma de goles anotados por jugadores de ${homeName} (${homeSum}) debe coincidir exactamente con los goles del equipo (${parsedHome}).`
+        );
+        return;
+      }
+      if (parsedAway !== null && awaySum !== parsedAway) {
+        setEditError(
+          `La suma de goles anotados por jugadores de ${awayName} (${awaySum}) debe coincidir exactamente con los goles del equipo (${parsedAway}).`
+        );
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       await onUpdateMatch({
@@ -358,6 +558,10 @@ export default function ProgramacionView({
         scheduledAt: editDateTime ? new Date(editDateTime).toISOString() : editingMatch.scheduledAt,
         venue: editVenue.trim() || editingMatch.venue,
       });
+      await onSyncMatchGoals(
+        editingMatch.id,
+        editStatus === 'programado' ? [] : draftGoals
+      );
       setEditingMatch(null);
     } catch (err) {
       setEditError(
@@ -375,6 +579,24 @@ export default function ProgramacionView({
   const cardTeamPlayers = players
     .filter((p) => p.teamId === cardTeamId)
     .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+  const goalTeamPlayers = players
+    .filter((p) => p.teamId === goalTeamId)
+    .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+
+  const modalHomeGoalsSum = editingMatch
+    ? draftGoals
+        .filter((g) => g.teamId === editingMatch.homeTeamId)
+        .reduce((sum, g) => sum + g.goalsCount, 0)
+    : 0;
+  const modalAwayGoalsSum = editingMatch
+    ? draftGoals
+        .filter((g) => g.teamId === editingMatch.awayTeamId)
+        .reduce((sum, g) => sum + g.goalsCount, 0)
+    : 0;
+  const parsedModalHome =
+    editStatus !== 'programado' && editHomeScore !== '' ? Number(editHomeScore) : 0;
+  const parsedModalAway =
+    editStatus !== 'programado' && editAwayScore !== '' ? Number(editAwayScore) : 0;
 
   return (
     <div className="space-y-6">
@@ -482,6 +704,9 @@ export default function ProgramacionView({
                   const cardsForMatch = matchCards.filter(
                     (c) => c.matchId === match.id
                   );
+                  const goalsForMatch = matchGoals.filter(
+                    (g) => g.matchId === match.id
+                  );
                   const yellowCount = cardsForMatch.filter(
                     (c) => c.cardType === 'amarilla'
                   ).length;
@@ -563,31 +788,53 @@ export default function ProgramacionView({
                         </div>
                       </div>
 
-                      {/* Resumen de tarjetas del partido si existen */}
-                      {cardsForMatch.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs pt-1 text-[#CBD5E1]">
-                          {yellowCount > 0 && (
-                            <span className="inline-flex items-center gap-1.5 font-medium text-amber-300 tabular-nums">
-                              <span className="w-2.5 h-3.5 rounded-[2px] bg-amber-400 inline-block" />
-                              {yellowCount} {yellowCount === 1 ? 'Amarilla' : 'Amarillas'}
-                            </span>
+                      {/* Resumen de goleadores y tarjetas del partido si existen */}
+                      {(goalsForMatch.length > 0 || cardsForMatch.length > 0) && (
+                        <div className="space-y-1 pt-1 text-xs text-[#CBD5E1]">
+                          {goalsForMatch.length > 0 && (
+                            <p className="inline-flex items-center gap-1.5 text-[#94A3B8] truncate max-w-full">
+                              <Target className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                              <span className="truncate">
+                                Goles:{' '}
+                                {goalsForMatch
+                                  .map((g) => {
+                                    const pl = playerMap.get(g.playerId);
+                                    const name = pl?.fullName || 'Jugador';
+                                    return g.goalsCount > 1
+                                      ? `${name} (${g.goalsCount})`
+                                      : name;
+                                  })
+                                  .join(', ')}
+                              </span>
+                            </p>
                           )}
-                          {redCount > 0 && (
-                            <span className="inline-flex items-center gap-1.5 font-medium text-rose-400 tabular-nums">
-                              <span className="w-2.5 h-3.5 rounded-[2px] bg-rose-500 inline-block" />
-                              {redCount} {redCount === 1 ? 'Roja' : 'Rojas'}
-                            </span>
+
+                          {cardsForMatch.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              {yellowCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 font-medium text-amber-300 tabular-nums">
+                                  <span className="w-2.5 h-3.5 rounded-[2px] bg-amber-400 inline-block" />
+                                  {yellowCount} {yellowCount === 1 ? 'Amarilla' : 'Amarillas'}
+                                </span>
+                              )}
+                              {redCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 font-medium text-rose-400 tabular-nums">
+                                  <span className="w-2.5 h-3.5 rounded-[2px] bg-rose-500 inline-block" />
+                                  {redCount} {redCount === 1 ? 'Roja' : 'Rojas'}
+                                </span>
+                              )}
+                              <span className="text-[#64748B]" aria-hidden="true">·</span>
+                              <span
+                                className={`tabular-nums font-medium ${
+                                  pendingCount > 0 ? 'text-amber-300' : 'text-[#10B981]'
+                                }`}
+                              >
+                                {pendingCount > 0
+                                  ? `${pendingCount} penalidad(es) pendiente(s)`
+                                  : 'Penalidades regularizadas'}
+                              </span>
+                            </div>
                           )}
-                          <span className="text-[#64748B]" aria-hidden="true">·</span>
-                          <span
-                            className={`tabular-nums font-medium ${
-                              pendingCount > 0 ? 'text-amber-300' : 'text-[#10B981]'
-                            }`}
-                          >
-                            {pendingCount > 0
-                              ? `${pendingCount} penalidad(es) pendiente(s)`
-                              : 'Penalidades regularizadas'}
-                          </span>
                         </div>
                       )}
 
@@ -992,7 +1239,7 @@ export default function ProgramacionView({
             <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-[#F8FAFC]">
-                  Marcador y amonestaciones del encuentro
+                  Marcador, goleadores y amonestaciones
                 </h2>
                 <p className="text-xs text-[#94A3B8] mt-0.5">
                   {teamMap.get(editingMatch.homeTeamId)?.name || 'Local'} vs{' '}
@@ -1089,6 +1336,183 @@ export default function ProgramacionView({
                     className="w-full h-10 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
+              </div>
+
+              {/* Sección de Goleadores del encuentro */}
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0F172A] p-4 space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[#F8FAFC] inline-flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-[#10B981]" />
+                    <span>Goleadores del encuentro</span>
+                  </span>
+                  {editStatus !== 'programado' && (
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono tabular-nums">
+                      <span
+                        className={
+                          modalHomeGoalsSum === parsedModalHome
+                            ? 'text-[#10B981] font-semibold'
+                            : modalHomeGoalsSum > parsedModalHome
+                            ? 'text-rose-400 font-semibold'
+                            : 'text-amber-300 font-semibold'
+                        }
+                      >
+                        {teamMap.get(editingMatch.homeTeamId)?.name || 'Local'}:{' '}
+                        {modalHomeGoalsSum}/{isNaN(parsedModalHome) ? 0 : parsedModalHome}
+                      </span>
+                      <span className="text-[#475569]" aria-hidden="true">·</span>
+                      <span
+                        className={
+                          modalAwayGoalsSum === parsedModalAway
+                            ? 'text-[#10B981] font-semibold'
+                            : modalAwayGoalsSum > parsedModalAway
+                            ? 'text-rose-400 font-semibold'
+                            : 'text-amber-300 font-semibold'
+                        }
+                      >
+                        {teamMap.get(editingMatch.awayTeamId)?.name || 'Visitante'}:{' '}
+                        {modalAwayGoalsSum}/{isNaN(parsedModalAway) ? 0 : parsedModalAway}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {goalError && (
+                  <div className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-2.5 text-xs text-rose-200">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
+                    <span>{goalError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_92px] gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Equipo
+                    </label>
+                    <select
+                      value={goalTeamId}
+                      onChange={(e) => handleGoalTeamChange(e.target.value)}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
+                    >
+                      <option value={editingMatch.homeTeamId}>
+                        {teamMap.get(editingMatch.homeTeamId)?.name || 'Local'}
+                      </option>
+                      <option value={editingMatch.awayTeamId}>
+                        {teamMap.get(editingMatch.awayTeamId)?.name || 'Visitante'}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Jugador que anotó
+                    </label>
+                    <select
+                      value={goalPlayerId}
+                      onChange={(e) => setGoalPlayerId(e.target.value)}
+                      disabled={goalTeamPlayers.length === 0}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-[#F8FAFC] disabled:opacity-50 focus:outline-none focus:border-[#10B981]"
+                    >
+                      {goalTeamPlayers.length === 0 ? (
+                        <option value="">Sin jugadores registrados</option>
+                      ) : (
+                        goalTeamPlayers.map((pl) => (
+                          <option key={pl.id} value={pl.id}>
+                            #{pl.jerseyNumber} — {pl.fullName}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Goles
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={goalCountInput}
+                      onChange={(e) => setGoalCountInput(e.target.value)}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-center font-mono tabular-nums text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                  <p className="text-[11px] text-[#94A3B8]">
+                    La suma de goles por jugador debe coincidir con el marcador de cada equipo al finalizar.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddDraftGoal}
+                    disabled={goalTeamPlayers.length === 0}
+                    className="h-9 px-3.5 rounded-lg bg-[#1E293B] border border-[#10B981]/35 hover:bg-[#273549] text-xs font-semibold text-[#10B981] disabled:opacity-50 inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar gol</span>
+                  </button>
+                </div>
+
+                {draftGoals.length > 0 && (
+                  <div className="divide-y divide-white/[0.06] border border-white/[0.08] rounded-xl overflow-hidden bg-[#111827]">
+                    {draftGoals.map((goal) => {
+                      const pl = playerMap.get(goal.playerId);
+                      const tm = teamMap.get(goal.teamId);
+                      return (
+                        <div
+                          key={goal.playerId}
+                          className="p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className="w-2.5 h-2.5 rounded-[3px] shrink-0 ring-1 ring-white/20"
+                              style={{ backgroundColor: tm?.primaryColor || '#10B981' }}
+                            />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-[#F8FAFC] truncate">
+                                #{pl?.jerseyNumber ?? '?'} {pl?.fullName || 'Jugador'}{' '}
+                                <span className="font-normal text-[#94A3B8]">
+                                  ({tm?.name || 'Equipo'})
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleAdjustDraftGoal(goal.playerId, -1)}
+                              aria-label="Restar un gol"
+                              className="h-7 w-7 rounded-lg border border-white/[0.1] bg-[#1E293B] text-[#CBD5E1] hover:text-[#F8FAFC] flex items-center justify-center"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="min-w-[34px] text-center font-mono tabular-nums font-bold text-[#10B981]">
+                              {goal.goalsCount} {goal.goalsCount === 1 ? 'gol' : 'goles'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAdjustDraftGoal(goal.playerId, 1)}
+                              aria-label="Sumar un gol"
+                              className="h-7 w-7 rounded-lg border border-white/[0.1] bg-[#1E293B] text-[#CBD5E1] hover:text-[#F8FAFC] flex items-center justify-center"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDraftGoal(goal.playerId)}
+                              aria-label="Quitar goleador"
+                              className="h-7 w-7 rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center ml-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Sección de Amonestaciones del encuentro (Tarjetas Amarillas y Rojas) */}

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import {
+  Award,
   CalendarDays,
   Home,
   ListOrdered,
@@ -28,6 +29,7 @@ const NAV_ITEMS: {
   { id: 'programacion', label: 'Programación', icon: CalendarDays },
   { id: 'equipos', label: 'Equipos', icon: Users },
   { id: 'posiciones', label: 'Posiciones', icon: ListOrdered },
+  { id: 'goleadores', label: 'Goleadores', icon: Award },
 ];
 
 export default function HeaderAndNav({
@@ -104,7 +106,7 @@ export default function HeaderAndNav({
         aria-label="Navegación móvil"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#111827]/95 backdrop-blur-md border-t border-white/[0.08]"
       >
-        <div className="grid grid-cols-4 h-14">
+        <div className="grid grid-cols-5 h-14">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activePage === item.id;
@@ -113,12 +115,12 @@ export default function HeaderAndNav({
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                className={`flex flex-col items-center justify-center min-h-[44px] transition-colors ${
+                className={`flex flex-col items-center justify-center min-h-[44px] px-0.5 transition-colors ${
                   isActive ? 'text-[#10B981]' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                 }`}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
-                <span className="text-[11px] font-medium tracking-tight mt-0.5 whitespace-nowrap">
+                <span className="text-[10px] font-medium tracking-tight mt-0.5 whitespace-nowrap">
                   {item.label}
                 </span>
               </button>

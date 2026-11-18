@@ -123,6 +123,18 @@ create table if not exists public.match_cards (
   created_at timestamptz not null default now()
 );
 
+-- 9. Goles por jugador en cada encuentro (sincronizado con Tabla de Goleadores)
+create table if not exists public.match_goals (
+  id uuid primary key default gen_random_uuid(),
+  championship_id uuid not null references public.championships(id) on delete cascade,
+  match_id uuid not null references public.matches(id) on delete cascade,
+  team_id uuid not null references public.teams(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  goals_count integer not null default 1 check (goals_count >= 1),
+  created_at timestamptz not null default now(),
+  unique (match_id, player_id)
+);
+
 -- Índices de rendimiento
 create index if not exists idx_teams_championship on public.teams(championship_id);
 create index if not exists idx_players_team on public.players(team_id);
@@ -132,6 +144,9 @@ create index if not exists idx_reactions_post on public.reactions(post_id);
 create index if not exists idx_comments_post_date on public.comments(post_id, created_at asc);
 create index if not exists idx_match_cards_champ_team on public.match_cards(championship_id, team_id);
 create index if not exists idx_match_cards_match on public.match_cards(match_id);
+create index if not exists idx_match_goals_championship on public.match_goals(championship_id);
+create index if not exists idx_match_goals_match on public.match_goals(match_id);
+create index if not exists idx_match_goals_player on public.match_goals(player_id);
 
 -- =============================================================================
 -- Row Level Security (RLS):
@@ -151,6 +166,7 @@ alter table public.news_posts enable row level security;
 alter table public.reactions enable row level security;
 alter table public.comments enable row level security;
 alter table public.match_cards enable row level security;
+alter table public.match_goals enable row level security;
 
 -- Lectura pública (Modo Vista Espectador)
 drop policy if exists "Lectura pública de campeonatos" on public.championships;
@@ -184,6 +200,10 @@ create policy "Lectura pública de comentarios"
 drop policy if exists "Lectura pública de amonestaciones" on public.match_cards;
 create policy "Lectura pública de amonestaciones"
   on public.match_cards for select using (true);
+
+drop policy if exists "Lectura pública de goles" on public.match_goals;
+create policy "Lectura pública de goles"
+  on public.match_goals for select using (true);
 
 -- Políticas de escritura solo para administradores autenticados
 drop policy if exists "Admin gestiona campeonatos" on public.championships;
@@ -219,6 +239,12 @@ create policy "Admin gestiona noticias"
 drop policy if exists "Admin gestiona amonestaciones" on public.match_cards;
 create policy "Admin gestiona amonestaciones"
   on public.match_cards for all
+  using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+drop policy if exists "Admin gestiona goles" on public.match_goals;
+create policy "Admin gestiona goles"
+  on public.match_goals for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 
@@ -271,5 +297,10 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.match_cards;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.match_goals;
 exception when duplicate_object then null;
 end $$;

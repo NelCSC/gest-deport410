@@ -6,6 +6,7 @@ import {
   Championship,
   Match,
   MatchCard,
+  MatchGoal,
   NewsComment,
   NewsPost,
   NewsReaction,
@@ -66,6 +67,9 @@ export function loadLocalSnapshot(): AppStateSnapshot {
       matchCards: Array.isArray(parsed.matchCards)
         ? parsed.matchCards
         : seed.matchCards,
+      matchGoals: Array.isArray(parsed.matchGoals)
+        ? parsed.matchGoals
+        : seed.matchGoals,
     };
   } catch {
     return getInitialSeedData();
@@ -218,6 +222,18 @@ function mapMatchCardFromDb(row: Record<string, unknown>): MatchCard {
   };
 }
 
+function mapMatchGoalFromDb(row: Record<string, unknown>): MatchGoal {
+  return {
+    id: String(row.id),
+    championshipId: String(row.championship_id),
+    matchId: String(row.match_id),
+    teamId: String(row.team_id),
+    playerId: String(row.player_id),
+    goalsCount: Number(row.goals_count ?? 1),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  };
+}
+
 export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | null> {
   const client = getSupabaseClient();
   if (!client) return null;
@@ -231,6 +247,7 @@ export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | nul
     reactionsRes,
     commentsRes,
     cardsRes,
+    goalsRes,
   ] = await Promise.all([
     client.from('championships').select('*').order('created_at', { ascending: false }),
     client.from('teams').select('*').order('created_at', { ascending: true }),
@@ -240,6 +257,7 @@ export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | nul
     client.from('reactions').select('*'),
     client.from('comments').select('*').order('created_at', { ascending: true }),
     client.from('match_cards').select('*').order('created_at', { ascending: false }),
+    client.from('match_goals').select('*').order('created_at', { ascending: true }),
   ]);
 
   if (champRes.error || teamsRes.error || playersRes.error || matchesRes.error || newsRes.error) {
@@ -262,6 +280,7 @@ export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | nul
     reactions: reactionsRes.error ? [] : (reactionsRes.data || []).map(mapReactionFromDb),
     comments: commentsRes.error ? [] : (commentsRes.data || []).map(mapCommentFromDb),
     matchCards: cardsRes.error ? [] : (cardsRes.data || []).map(mapMatchCardFromDb),
+    matchGoals: goalsRes.error ? [] : (goalsRes.data || []).map(mapMatchGoalFromDb),
   };
 }
 
@@ -517,6 +536,71 @@ export async function dbDeleteMatchCard(cardId: string): Promise<void> {
   if (!client) return;
   const { error } = await client.from('match_cards').delete().eq('id', cardId);
   if (error) throw new Error(error.message);
+}
+
+export async function dbSyncMatchGoals(
+  matchId: string,
+  championshipId: string,
+  goals: { teamId: string; playerId: string; goalsCount: number }[]
+): Promise<MatchGoal[]> {
+  // Normalizar por jugador (evita duplicados por unique (match_id, player_id))
+  const byPlayer = new Map<
+    string,
+    { teamId: string; playerId: string; goalsCount: number }
+  >();
+  for (const item of goals) {
+    if (item.goalsCount <= 0) continue;
+    const prev = byPlayer.get(item.playerId);
+    if (prev) {
+      prev.goalsCount += item.goalsCount;
+    } else {
+      byPlayer.set(item.playerId, { ...item });
+    }
+  }
+  const normalized = Array.from(byPlayer.values());
+
+  const client = getSupabaseClient();
+  if (!client) {
+    const now = new Date().toISOString();
+    return normalized.map((g) => ({
+      id: generateId('goal'),
+      championshipId,
+      matchId,
+      teamId: g.teamId,
+      playerId: g.playerId,
+      goalsCount: g.goalsCount,
+      createdAt: now,
+    }));
+  }
+
+  const { error: delError } = await client
+    .from('match_goals')
+    .delete()
+    .eq('match_id', matchId);
+
+  if (delError) {
+    throw new Error(
+      `No se pudieron guardar los goleadores del partido (${delError.message}). Asegúrate de haber ejecutado el script actualizado supabase/schema.sql.`
+    );
+  }
+
+  if (normalized.length === 0) return [];
+
+  const payload = normalized.map((g) => ({
+    championship_id: championshipId,
+    match_id: matchId,
+    team_id: g.teamId,
+    player_id: g.playerId,
+    goals_count: g.goalsCount,
+  }));
+
+  const { data, error: insError } = await client
+    .from('match_goals')
+    .insert(payload)
+    .select();
+
+  if (insError) throw new Error(insError.message);
+  return (data || []).map(mapMatchGoalFromDb);
 }
 
 export async function dbCreateNewsPost(

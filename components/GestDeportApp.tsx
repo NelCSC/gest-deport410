@@ -17,6 +17,7 @@ import {
   dbDeleteNewsPost,
   dbDeletePlayer,
   dbDeleteTeam,
+  dbSyncMatchGoals,
   dbUpdateChampionship,
   dbUpdateMatch,
   dbUpdateMatchCard,
@@ -46,6 +47,7 @@ import {
 import ChampionshipModal from './ChampionshipModal';
 import EquiposView from './EquiposView';
 import Footer from './Footer';
+import GoleadoresView from './GoleadoresView';
 import HeaderAndNav from './HeaderAndNav';
 import InicioView from './InicioView';
 import LoginModal from './LoginModal';
@@ -164,6 +166,9 @@ export default function GestDeportApp() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'match_cards' }, () =>
           refreshData()
         )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'match_goals' }, () =>
+          refreshData()
+        )
         .subscribe();
 
       return () => {
@@ -264,6 +269,7 @@ export default function GestDeportApp() {
         players: prev.players.filter((p) => p.championshipId !== championshipId),
         matches: prev.matches.filter((m) => m.championshipId !== championshipId),
         matchCards: prev.matchCards.filter((mc) => mc.championshipId !== championshipId),
+        matchGoals: (prev.matchGoals || []).filter((mg) => mg.championshipId !== championshipId),
         newsPosts: prev.newsPosts.filter((n) => n.championshipId !== championshipId),
         reactions: prev.reactions.filter((r) => !removedPostIds.has(r.postId)),
         comments: prev.comments.filter((c) => !removedPostIds.has(c.postId)),
@@ -312,6 +318,7 @@ export default function GestDeportApp() {
         (m) => m.homeTeamId !== teamId && m.awayTeamId !== teamId
       ),
       matchCards: prev.matchCards.filter((mc) => mc.teamId !== teamId),
+      matchGoals: (prev.matchGoals || []).filter((mg) => mg.teamId !== teamId),
     }));
     notify('Equipo eliminado del campeonato.');
   };
@@ -340,6 +347,7 @@ export default function GestDeportApp() {
       ...prev,
       players: prev.players.filter((p) => p.id !== playerId),
       matchCards: prev.matchCards.filter((mc) => mc.playerId !== playerId),
+      matchGoals: (prev.matchGoals || []).filter((mg) => mg.playerId !== playerId),
     }));
     notify('Jugador retirado de la nómina.');
   };
@@ -375,6 +383,7 @@ export default function GestDeportApp() {
       ...prev,
       matches: prev.matches.filter((m) => m.id !== matchId),
       matchCards: prev.matchCards.filter((mc) => mc.matchId !== matchId),
+      matchGoals: (prev.matchGoals || []).filter((mg) => mg.matchId !== matchId),
     }));
     notify('Encuentro eliminado de la programación.');
   };
@@ -591,6 +600,22 @@ export default function GestDeportApp() {
     notify('Portada del inicio actualizada correctamente.');
   };
 
+  // Goles por jugador en el encuentro (sincronizado con Goleadores)
+  const handleSyncMatchGoals = async (
+    matchId: string,
+    goals: { teamId: string; playerId: string; goalsCount: number }[]
+  ) => {
+    if (!activeChampionship) return;
+    const saved = await dbSyncMatchGoals(matchId, activeChampionship.id, goals);
+    updateSnapshot((prev) => ({
+      ...prev,
+      matchGoals: [
+        ...(prev.matchGoals || []).filter((g) => g.matchId !== matchId),
+        ...saved,
+      ],
+    }));
+  };
+
   const scopedTeams = useMemo(() => {
     if (!snapshot || !activeChampionship) return [];
     return snapshot.teams.filter(
@@ -616,6 +641,13 @@ export default function GestDeportApp() {
     if (!snapshot || !activeChampionship) return [];
     return (snapshot.matchCards || []).filter(
       (c) => c.championshipId === activeChampionship.id
+    );
+  }, [snapshot, activeChampionship]);
+
+  const scopedMatchGoals = useMemo(() => {
+    if (!snapshot || !activeChampionship) return [];
+    return (snapshot.matchGoals || []).filter(
+      (g) => g.championshipId === activeChampionship.id
     );
   }, [snapshot, activeChampionship]);
 
@@ -811,6 +843,7 @@ export default function GestDeportApp() {
                   players={scopedPlayers}
                   matches={scopedMatches}
                   matchCards={scopedMatchCards}
+                  matchGoals={scopedMatchGoals}
                   standings={standings}
                   adminUser={adminUser}
                   onCreateMatches={handleCreateMatches}
@@ -819,6 +852,7 @@ export default function GestDeportApp() {
                   onCreateMatchCard={handleCreateMatchCard}
                   onUpdateMatchCard={handleUpdateMatchCard}
                   onDeleteMatchCard={handleDeleteMatchCard}
+                  onSyncMatchGoals={handleSyncMatchGoals}
                 />
               )}
 
@@ -846,6 +880,16 @@ export default function GestDeportApp() {
                   standings={standings}
                   adminUser={adminUser}
                   onUpdateChampionshipRules={handleUpdateChampionshipRules}
+                />
+              )}
+
+              {activePage === 'goleadores' && (
+                <GoleadoresView
+                  championship={activeChampionship}
+                  teams={scopedTeams}
+                  players={scopedPlayers}
+                  matches={scopedMatches}
+                  matchGoals={scopedMatchGoals}
                 />
               )}
             </motion.div>
