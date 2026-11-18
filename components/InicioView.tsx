@@ -404,24 +404,6 @@ export default function InicioView({
             <p className="text-xs sm:text-base text-[#CBD5E1] mt-2 max-w-2xl line-clamp-2">
               {championship.description}
             </p>
-
-            <div className="flex flex-wrap items-center gap-3 sm:gap-5 mt-4">
-              <button
-                type="button"
-                onClick={() => onNavigate('programacion')}
-                className="h-11 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-xs sm:text-sm font-bold hover:bg-[#34D399] transition-colors inline-flex items-center gap-2 whitespace-nowrap"
-              >
-                <span>Ver programación</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('posiciones')}
-                className="min-h-[44px] text-xs sm:text-sm font-semibold text-[#06B6D4] hover:text-[#22D3EE] transition-colors inline-flex items-center gap-1 whitespace-nowrap"
-              >
-                <span>Tabla de posiciones →</span>
-              </button>
-            </div>
           </div>
         </div>
 

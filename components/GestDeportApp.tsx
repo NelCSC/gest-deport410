@@ -853,7 +853,7 @@ export default function GestDeportApp() {
         )}
       </main>
 
-      <Footer onNavigate={setActivePage} />
+      <Footer />
 
       {/* Modales globales */}
       <LoginModal
