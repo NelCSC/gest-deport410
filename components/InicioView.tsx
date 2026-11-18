@@ -137,6 +137,7 @@ export default function InicioView({
   >({});
   const [commentErrors, setCommentErrors] = useState<Record<string, string | null>>({});
   const [commentSubmitting, setCommentSubmitting] = useState<Record<string, boolean>>({});
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [reactionErrors, setReactionErrors] = useState<Record<string, string | null>>({});
   const [animatingReaction, setAnimatingReaction] = useState<string | null>(null);
 
@@ -711,8 +712,13 @@ export default function InicioView({
                 .filter((c) => c.postId === post.id)
                 .sort(
                   (a, b) =>
-                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                 );
+              const isCommentsExpanded = Boolean(expandedComments[post.id]);
+              const visibleComments = isCommentsExpanded
+                ? postComments
+                : postComments.slice(0, 2);
+              const hiddenCount = Math.max(0, postComments.length - 2);
 
               const draft = commentDrafts[post.id] || {
                 alias: '',
@@ -865,51 +871,12 @@ export default function InicioView({
                     )}
                   </div>
 
-                  {/* Sección de Comentarios Públicos */}
+                  {/* Sección de Comentarios Públicos: formulario inmediato debajo de la foto + comentarios más recientes arriba */}
                   <div className="px-5 py-4 space-y-4 bg-[#111827]">
-                    {postComments.length > 0 && (
-                      <div className="space-y-3">
-                        {postComments.map((cmt) => (
-                          <div
-                            key={cmt.id}
-                            className="rounded-xl bg-[#0F172A] border border-white/[0.06] px-3.5 py-2.5 flex items-start justify-between gap-2.5"
-                          >
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="flex flex-wrap items-center gap-2 text-xs">
-                                <span className="font-bold text-[#F8FAFC]">
-                                  {cmt.authorAlias}
-                                </span>
-                                <span className="text-[#475569]" aria-hidden="true">
-                                  ·
-                                </span>
-                                <span className="text-[#94A3B8] tabular-nums">
-                                  {formatNewsTimestamp(cmt.createdAt)}
-                                </span>
-                              </div>
-                              <p className="text-sm text-[#CBD5E1] whitespace-pre-line break-words">
-                                {cmt.content}
-                              </p>
-                            </div>
-
-                            {adminUser && (
-                              <button
-                                type="button"
-                                onClick={() => onDeleteComment(cmt.id)}
-                                aria-label="Eliminar comentario"
-                                className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 shrink-0 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Formulario de comentario sin registro + Honeypot */}
+                    {/* Formulario de comentario inmediato debajo de la fotografía + Honeypot */}
                     <form
                       onSubmit={(e) => handleSubmitComment(e, post.id)}
-                      className="space-y-2.5 pt-1"
+                      className="space-y-2.5"
                     >
                       {commentErrors[post.id] && (
                         <div
@@ -958,7 +925,7 @@ export default function InicioView({
                               onChange={(e) =>
                                 updateDraft(post.id, 'content', e.target.value)
                               }
-                              placeholder="Escribe un comentario..."
+                              placeholder="Escribe un comentario sobre esta imagen..."
                               className="w-full h-10 pl-3 pr-14 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs sm:text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/25 focus:border-[#10B981]"
                             />
                             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono tabular-nums text-[#64748B]">
@@ -979,6 +946,73 @@ export default function InicioView({
                         </div>
                       </div>
                     </form>
+
+                    {/* Lista de comentarios: los más recientes primero, con altura acotada para no perder la foto */}
+                    {postComments.length > 0 && (
+                      <div className="space-y-2.5 pt-1 border-t border-white/[0.06]">
+                        <div
+                          className={`space-y-2.5 ${
+                            isCommentsExpanded
+                              ? 'max-h-[300px] overflow-y-auto overscroll-contain pr-1'
+                              : ''
+                          }`}
+                        >
+                          {visibleComments.map((cmt) => (
+                            <div
+                              key={cmt.id}
+                              className="rounded-xl bg-[#0F172A] border border-white/[0.06] px-3.5 py-2.5 flex items-start justify-between gap-2.5"
+                            >
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="font-bold text-[#F8FAFC]">
+                                    {cmt.authorAlias}
+                                  </span>
+                                  <span className="text-[#475569]" aria-hidden="true">
+                                    ·
+                                  </span>
+                                  <span className="text-[#94A3B8] tabular-nums">
+                                    {formatNewsTimestamp(cmt.createdAt)}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-[#CBD5E1] whitespace-pre-line break-words">
+                                  {cmt.content}
+                                </p>
+                              </div>
+
+                              {adminUser && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteComment(cmt.id)}
+                                  aria-label="Eliminar comentario"
+                                  className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 shrink-0 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {postComments.length > 2 && (
+                          <div className="flex items-center justify-between pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedComments((prev) => ({
+                                  ...prev,
+                                  [post.id]: !isCommentsExpanded,
+                                }))
+                              }
+                              className="min-h-[36px] text-xs font-semibold text-[#06B6D4] hover:text-[#22D3EE] transition-colors"
+                            >
+                              {isCommentsExpanded
+                                ? 'Mostrar solo los 2 más recientes'
+                                : `Ver todos los comentarios (${postComments.length} · ${hiddenCount} más)`}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </article>
               );
