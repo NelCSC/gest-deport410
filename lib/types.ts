@@ -88,6 +88,20 @@ export interface NewsReaction {
   createdAt: string;
 }
 
+export type CardType = 'amarilla' | 'roja';
+
+export interface MatchCard {
+  id: string;
+  championshipId: string;
+  matchId: string;
+  teamId: string;
+  playerId: string;
+  cardType: CardType;
+  penaltyRegularized: boolean;
+  notes: string;
+  createdAt: string;
+}
+
 export interface NewsComment {
   id: string;
   postId: string;
@@ -126,4 +140,5 @@ export interface AppStateSnapshot {
   newsPosts: NewsPost[];
   reactions: NewsReaction[];
   comments: NewsComment[];
+  matchCards: MatchCard[];
 }

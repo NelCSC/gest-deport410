@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   CalendarPlus,
   CheckCircle2,
   Edit3,
   GitBranch,
   MapPin,
+  Plus,
   Sparkles,
   Trash2,
   X,
@@ -22,10 +24,13 @@ import {
 } from '@/lib/tournament-utils';
 import {
   AdminUser,
+  CardType,
   Championship,
   Match,
+  MatchCard,
   MatchStage,
   MatchStatus,
+  Player,
   StandingRow,
   Team,
 } from '@/lib/types';
@@ -34,12 +39,17 @@ import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 interface ProgramacionViewProps {
   championship: Championship;
   teams: Team[];
+  players: Player[];
   matches: Match[];
+  matchCards: MatchCard[];
   standings: StandingRow[];
   adminUser: AdminUser | null;
   onCreateMatches: (inputs: Omit<Match, 'id' | 'createdAt'>[]) => Promise<void>;
   onUpdateMatch: (match: Match) => Promise<void>;
   onDeleteMatch: (matchId: string) => Promise<void>;
+  onCreateMatchCard: (input: Omit<MatchCard, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateMatchCard: (card: MatchCard) => Promise<void>;
+  onDeleteMatchCard: (cardId: string) => Promise<void>;
 }
 
 const STAGE_TABS: { id: 'todos' | MatchStage; label: string }[] = [
@@ -53,12 +63,17 @@ const STAGE_TABS: { id: 'todos' | MatchStage; label: string }[] = [
 export default function ProgramacionView({
   championship,
   teams,
+  players,
   matches,
+  matchCards,
   standings,
   adminUser,
   onCreateMatches,
   onUpdateMatch,
   onDeleteMatch,
+  onCreateMatchCard,
+  onUpdateMatchCard,
+  onDeleteMatchCard,
 }: ProgramacionViewProps) {
   const [stageFilter, setStageFilter] = useState<'todos' | MatchStage>('todos');
 
@@ -102,7 +117,17 @@ export default function ProgramacionView({
   const [editVenue, setEditVenue] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
 
+  // Form amonestaciones dentro del modal de resultado
+  const [cardTeamId, setCardTeamId] = useState('');
+  const [cardPlayerId, setCardPlayerId] = useState('');
+  const [cardType, setCardType] = useState<CardType>('amarilla');
+  const [cardRegularized, setCardRegularized] = useState(false);
+  const [cardNotes, setCardNotes] = useState('');
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [savingCard, setSavingCard] = useState(false);
+
   const teamMap = new Map(teams.map((t) => [t.id, t]));
+  const playerMap = new Map(players.map((p) => [p.id, p]));
 
   const filteredMatches = matches
     .filter((m) => {
@@ -233,6 +258,66 @@ export default function ProgramacionView({
       .slice(0, 16);
     setEditDateTime(localIso);
     setEditVenue(match.venue);
+
+    // Preseleccionar equipo y primer jugador para amonestaciones
+    const defaultTeam = match.homeTeamId;
+    setCardTeamId(defaultTeam);
+    const defaultPlayers = players
+      .filter((p) => p.teamId === defaultTeam)
+      .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+    setCardPlayerId(defaultPlayers[0]?.id || '');
+    setCardType('amarilla');
+    setCardRegularized(false);
+    setCardNotes('');
+    setCardError(null);
+  };
+
+  const handleCardTeamChange = (newTeamId: string) => {
+    setCardTeamId(newTeamId);
+    const roster = players
+      .filter((p) => p.teamId === newTeamId)
+      .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+    setCardPlayerId(roster[0]?.id || '');
+    setCardError(null);
+  };
+
+  const handleAddMatchCard = async () => {
+    if (!editingMatch) return;
+    setCardError(null);
+
+    if (!cardTeamId) {
+      setCardError('Selecciona el equipo del jugador amonestado.');
+      return;
+    }
+    if (!cardPlayerId) {
+      setCardError(
+        'Este equipo aún no tiene jugadores registrados en su nómina para asignar tarjetas.'
+      );
+      return;
+    }
+
+    setSavingCard(true);
+    try {
+      await onCreateMatchCard({
+        championshipId: championship.id,
+        matchId: editingMatch.id,
+        teamId: cardTeamId,
+        playerId: cardPlayerId,
+        cardType,
+        penaltyRegularized: cardRegularized,
+        notes: cardNotes.trim(),
+      });
+      setCardNotes('');
+      setCardRegularized(false);
+    } catch (err) {
+      setCardError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar la amonestación.'
+      );
+    } finally {
+      setSavingCard(false);
+    }
   };
 
   const handleSaveMatchResult = async (e: React.FormEvent) => {
@@ -284,16 +369,22 @@ export default function ProgramacionView({
   };
 
   const previewQualifiers = standings.slice(0, koQualifiers);
+  const editingMatchCards = editingMatch
+    ? matchCards.filter((c) => c.matchId === editingMatch.id)
+    : [];
+  const cardTeamPlayers = players
+    .filter((p) => p.teamId === cardTeamId)
+    .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
 
   return (
     <div className="space-y-6">
       {/* Cabecera de sección */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC] tracking-tight">
             Programación y llaves del torneo
           </h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-sm text-[#94A3B8] mt-1">
             Encuentros de Todos contra Todos, Liguilla, Semifinales y Gran Final. Los resultados actualizan la tabla automáticamente.
           </p>
         </div>
@@ -304,7 +395,7 @@ export default function ProgramacionView({
               type="button"
               onClick={openCreateModal}
               disabled={teams.length < 2}
-              className="h-10 px-4 rounded-xl bg-[#0D5C63] text-white text-xs sm:text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-50 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+              className="h-10 px-4 rounded-xl bg-[#10B981] text-[#022C22] text-xs sm:text-sm font-bold hover:bg-[#34D399] disabled:opacity-50 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
             >
               <CalendarPlus className="w-4 h-4" />
               <span>Programar partido</span>
@@ -313,9 +404,9 @@ export default function ProgramacionView({
               type="button"
               onClick={() => setShowRoundRobinModal(true)}
               disabled={teams.length < 2}
-              className="h-10 px-4 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs sm:text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+              className="h-10 px-4 rounded-xl border border-white/[0.1] bg-[#111827] text-[#F8FAFC] text-xs sm:text-sm font-medium hover:bg-[#1E293B] disabled:opacity-50 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
             >
-              <Sparkles className="w-4 h-4 text-[#0D5C63]" />
+              <Sparkles className="w-4 h-4 text-[#06B6D4]" />
               <span>Generar Todos contra Todos</span>
             </button>
             <button
@@ -325,9 +416,9 @@ export default function ProgramacionView({
                 setShowKnockoutModal(true);
               }}
               disabled={teams.length < 2}
-              className="h-10 px-4 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-semibold hover:bg-emerald-100 disabled:opacity-50 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+              className="h-10 px-4 rounded-xl border border-[#10B981]/35 bg-[#10B981]/10 text-[#34D399] text-xs sm:text-sm font-semibold hover:bg-[#10B981]/20 disabled:opacity-50 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
             >
-              <GitBranch className="w-4 h-4 text-emerald-700" />
+              <GitBranch className="w-4 h-4 text-[#10B981]" />
               <span>Avanzar fase (Liguilla / Final)</span>
             </button>
           </div>
@@ -335,7 +426,7 @@ export default function ProgramacionView({
       </div>
 
       {/* Filtro segmentado de etapas */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl overflow-x-auto w-full sm:w-fit">
+      <div className="flex items-center gap-1.5 p-1 bg-[#111827] border border-white/[0.08] rounded-xl overflow-x-auto w-full sm:w-fit">
         {STAGE_TABS.map((tab) => {
           const isActive = stageFilter === tab.id;
           return (
@@ -345,8 +436,8 @@ export default function ProgramacionView({
               onClick={() => setStageFilter(tab.id)}
               className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
                 isActive
-                  ? 'bg-white text-[#0D5C63] font-semibold shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#10B981] text-[#022C22] font-bold'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-white/[0.04]'
               }`}
             >
               {tab.label}
@@ -357,12 +448,12 @@ export default function ProgramacionView({
 
       {/* Listado de encuentros estilo centro deportivo */}
       {Object.keys(groupedMatches).length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
-          <CalendarPlus className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-          <h3 className="text-base font-semibold text-slate-900">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#111827] p-10 text-center">
+          <CalendarPlus className="w-8 h-8 text-[#94A3B8] mx-auto mb-2" />
+          <h3 className="text-base font-semibold text-[#F8FAFC]">
             Sin encuentros registrados en esta fase
           </h3>
-          <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
+          <p className="text-sm text-[#94A3B8] mt-1 max-w-md mx-auto">
             {teams.length < 2
               ? 'Primero registra al menos 2 equipos en la sección Equipos para poder generar la programación.'
               : 'El administrador puede programar partidos manuales o generar el fixture completo Todos contra Todos.'}
@@ -372,11 +463,11 @@ export default function ProgramacionView({
         <div className="space-y-8">
           {Object.entries(groupedMatches).map(([groupTitle, groupList]) => (
             <section key={groupTitle} className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
+                <h2 className="text-base sm:text-lg font-bold text-[#F8FAFC]">
                   {groupTitle}
                 </h2>
-                <span className="text-xs text-slate-500 tabular-nums">
+                <span className="text-xs text-[#94A3B8] tabular-nums">
                   {groupList.length} {groupList.length === 1 ? 'encuentro' : 'encuentros'}
                 </span>
               </div>
@@ -388,22 +479,35 @@ export default function ProgramacionView({
                   const isFinished = match.status === 'finalizado';
                   const isLive = match.status === 'en_juego';
 
+                  const cardsForMatch = matchCards.filter(
+                    (c) => c.matchId === match.id
+                  );
+                  const yellowCount = cardsForMatch.filter(
+                    (c) => c.cardType === 'amarilla'
+                  ).length;
+                  const redCount = cardsForMatch.filter(
+                    (c) => c.cardType === 'roja'
+                  ).length;
+                  const pendingCount = cardsForMatch.filter(
+                    (c) => !c.penaltyRegularized
+                  ).length;
+
                   return (
                     <article
                       key={match.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 flex flex-col justify-between gap-3"
+                      className="rounded-2xl border border-white/[0.08] bg-[#111827] p-4 sm:p-5 flex flex-col justify-between gap-3 hover:border-white/[0.15] transition-colors"
                     >
                       <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="text-slate-500 tabular-nums">
+                        <span className="text-[#94A3B8] tabular-nums">
                           {formatMatchDate(match.scheduledAt)} · {formatMatchTime(match.scheduledAt)} h
                         </span>
                         <span
                           className={`font-semibold ${
                             isFinished
-                              ? 'text-slate-700'
+                              ? 'text-[#10B981]'
                               : isLive
-                              ? 'text-emerald-700'
-                              : 'text-[#0D5C63]'
+                              ? 'text-[#06B6D4]'
+                              : 'text-[#94A3B8]'
                           }`}
                         >
                           {STATUS_LABELS[match.status]}
@@ -413,28 +517,25 @@ export default function ProgramacionView({
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-1">
                         {/* Local */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <span
-                              className="w-3 h-3 rounded-sm shrink-0"
-                              style={{ backgroundColor: home?.primaryColor || '#0D5C63' }}
+                              className="w-3 h-3 rounded-[4px] shrink-0 ring-1 ring-white/20"
+                              style={{ backgroundColor: home?.primaryColor || '#10B981' }}
                             />
-                            <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                            <p className="text-sm sm:text-base font-bold text-[#F8FAFC] truncate">
                               {home?.name || 'Local'}
                             </p>
                           </div>
-                          <p className="text-xs text-slate-500 truncate pl-5">
-                            {home?.serviceArea}
-                          </p>
                         </div>
 
                         {/* Marcador central */}
                         <div
                           className={`px-3.5 py-2 rounded-xl min-w-[84px] text-center border ${
                             isFinished
-                              ? 'bg-slate-900 text-white border-slate-900'
+                              ? 'bg-[#0F172A] text-[#10B981] border-[#10B981]/35'
                               : isLive
-                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                              : 'bg-slate-50 text-slate-700 border-slate-200'
+                              ? 'bg-[#06B6D4]/15 text-[#06B6D4] border-[#06B6D4]/45'
+                              : 'bg-[#0F172A] text-[#94A3B8] border-white/[0.08]'
                           }`}
                         >
                           {match.homeScore !== null && match.awayScore !== null ? (
@@ -442,7 +543,7 @@ export default function ProgramacionView({
                               {match.homeScore} : {match.awayScore}
                             </span>
                           ) : (
-                            <span className="text-xs font-bold font-mono tracking-wider">
+                            <span className="text-xs font-bold font-mono tracking-wider text-[#CBD5E1]">
                               VS
                             </span>
                           )}
@@ -450,24 +551,49 @@ export default function ProgramacionView({
 
                         {/* Visitante */}
                         <div className="min-w-0 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                          <div className="flex items-center justify-end gap-2.5">
+                            <p className="text-sm sm:text-base font-bold text-[#F8FAFC] truncate">
                               {away?.name || 'Visitante'}
                             </p>
                             <span
-                              className="w-3 h-3 rounded-sm shrink-0"
-                              style={{ backgroundColor: away?.primaryColor || '#059669' }}
+                              className="w-3 h-3 rounded-[4px] shrink-0 ring-1 ring-white/20"
+                              style={{ backgroundColor: away?.primaryColor || '#06B6D4' }}
                             />
                           </div>
-                          <p className="text-xs text-slate-500 truncate pr-5">
-                            {away?.serviceArea}
-                          </p>
                         </div>
                       </div>
 
-                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-3 text-xs text-slate-500">
+                      {/* Resumen de tarjetas del partido si existen */}
+                      {cardsForMatch.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs pt-1 text-[#CBD5E1]">
+                          {yellowCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 font-medium text-amber-300 tabular-nums">
+                              <span className="w-2.5 h-3.5 rounded-[2px] bg-amber-400 inline-block" />
+                              {yellowCount} {yellowCount === 1 ? 'Amarilla' : 'Amarillas'}
+                            </span>
+                          )}
+                          {redCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 font-medium text-rose-400 tabular-nums">
+                              <span className="w-2.5 h-3.5 rounded-[2px] bg-rose-500 inline-block" />
+                              {redCount} {redCount === 1 ? 'Roja' : 'Rojas'}
+                            </span>
+                          )}
+                          <span className="text-[#64748B]" aria-hidden="true">·</span>
+                          <span
+                            className={`tabular-nums font-medium ${
+                              pendingCount > 0 ? 'text-amber-300' : 'text-[#10B981]'
+                            }`}
+                          >
+                            {pendingCount > 0
+                              ? `${pendingCount} penalidad(es) pendiente(s)`
+                              : 'Penalidades regularizadas'}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-3 text-xs text-[#94A3B8]">
                         <span className="inline-flex items-center gap-1.5 truncate">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                           <span className="truncate">
                             {match.venue}
                             {match.notes ? ` · ${match.notes}` : ''}
@@ -479,16 +605,16 @@ export default function ProgramacionView({
                             <button
                               type="button"
                               onClick={() => openEditMatchModal(match)}
-                              className="h-8 px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-medium inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                              className="h-8 px-3 rounded-lg border border-white/[0.1] bg-[#1E293B] hover:bg-[#273549] text-[#F8FAFC] font-medium inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                             >
-                              <Edit3 className="w-3.5 h-3.5 text-[#0D5C63]" />
-                              <span>{isFinished ? 'Editar marcador' : 'Registrar resultado'}</span>
+                              <Edit3 className="w-3.5 h-3.5 text-[#10B981]" />
+                              <span>{isFinished ? 'Editar resultado / tarjetas' : 'Registrar resultado'}</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => onDeleteMatch(match.id)}
                               aria-label="Eliminar encuentro"
-                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
+                              className="h-8 w-8 rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -507,17 +633,17 @@ export default function ProgramacionView({
       {/* Modal: Programar partido individual */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Programar encuentro</h2>
+          <div className="w-full max-w-lg rounded-2xl bg-[#111827] border border-white/[0.1] shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#F8FAFC]">Programar encuentro</h2>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -525,21 +651,21 @@ export default function ProgramacionView({
 
             <form onSubmit={handleCreateSingleMatch} className="p-6 space-y-4">
               {formError && (
-                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                <div className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-3 text-sm text-rose-200">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                   <span>{formError}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Equipo Local
                   </label>
                   <select
                     value={homeId}
                     onChange={(e) => setHomeId(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   >
                     {teams.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -549,13 +675,13 @@ export default function ProgramacionView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Equipo Visitante
                   </label>
                   <select
                     value={awayId}
                     onChange={(e) => setAwayId(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   >
                     {teams.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -568,13 +694,13 @@ export default function ProgramacionView({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Fase
                   </label>
                   <select
                     value={stage}
                     onChange={(e) => setStage(e.target.value as MatchStage)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   >
                     <option value="todos_contra_todos">Todos contra Todos</option>
                     <option value="liguilla">Liguilla</option>
@@ -584,7 +710,7 @@ export default function ProgramacionView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Jornada / Fecha N°
                   </label>
                   <input
@@ -593,38 +719,38 @@ export default function ProgramacionView({
                     max={30}
                     value={matchday}
                     onChange={(e) => setMatchday(Number(e.target.value))}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm tabular-nums"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] tabular-nums focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Fecha y hora
                   </label>
                   <input
                     type="datetime-local"
                     value={dateTimeLocal}
                     onChange={(e) => setDateTimeLocal(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm tabular-nums"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] tabular-nums focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Escenario / Cancha
                   </label>
                   <input
                     type="text"
                     value={venue}
                     onChange={(e) => setVenue(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                   Observación breve (opcional)
                 </label>
                 <input
@@ -632,7 +758,7 @@ export default function ProgramacionView({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Ej. Encuentro por la Jornada 4"
-                  className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm"
+                  className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-[#10B981]"
                 />
               </div>
 
@@ -640,14 +766,14 @@ export default function ProgramacionView({
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="h-10 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="h-10 px-4 rounded-xl border border-white/[0.1] bg-[#1E293B] text-sm font-medium text-[#F8FAFC] hover:bg-[#273549]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60"
+                  className="h-10 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] disabled:opacity-60"
                 >
                   {saving ? 'Guardando...' : 'Guardar partido'}
                 </button>
@@ -660,62 +786,62 @@ export default function ProgramacionView({
       {/* Modal: Generador Todos contra Todos */}
       {showRoundRobinModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
+          <div className="w-full max-w-md rounded-2xl bg-[#111827] border border-white/[0.1] shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#F8FAFC]">
                 Generar Fixture Todos contra Todos
               </h2>
               <button
                 type="button"
                 onClick={() => setShowRoundRobinModal(false)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleGenerateRoundRobin} className="p-6 space-y-4">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-[#94A3B8]">
                 Se generarán automáticamente todos los cruces de liga para los{' '}
-                <strong className="text-slate-900">{teams.length} equipos</strong> inscritos en este campeonato (una fecha semanal desde la fecha de inicio).
+                <strong className="text-[#F8FAFC]">{teams.length} equipos</strong> inscritos en este campeonato (una fecha semanal desde la fecha de inicio).
               </p>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                   Fecha de inicio (Jornada 1)
                 </label>
                 <input
                   type="date"
                   value={rrStartDate}
                   onChange={(e) => setRrStartDate(e.target.value)}
-                  className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm tabular-nums"
+                  className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] tabular-nums focus:outline-none focus:border-[#10B981]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                   Cancha predeterminada
                 </label>
                 <input
                   type="text"
                   value={rrVenue}
                   onChange={(e) => setRrVenue(e.target.value)}
-                  className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm"
+                  className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowRoundRobinModal(false)}
-                  className="h-10 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700"
+                  className="h-10 px-4 rounded-xl border border-white/[0.1] bg-[#1E293B] text-sm font-medium text-[#F8FAFC] hover:bg-[#273549]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60"
+                  className="h-10 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] disabled:opacity-60"
                 >
                   {saving ? 'Generando...' : 'Generar jornadas'}
                 </button>
@@ -728,34 +854,34 @@ export default function ProgramacionView({
       {/* Modal: Avanzar a Liguilla / Semifinales / Final */}
       {showKnockoutModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
+          <div className="w-full max-w-lg rounded-2xl bg-[#111827] border border-white/[0.1] shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#F8FAFC]">
                 Determinar clasificados y avanzar fase
               </h2>
               <button
                 type="button"
                 onClick={() => setShowKnockoutModal(false)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleGenerateKnockout} className="p-6 space-y-4">
               {koError && (
-                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                <div className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-3 text-sm text-rose-200">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                   <span>{koError}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Fase a generar
                   </label>
                   <select
@@ -763,7 +889,7 @@ export default function ProgramacionView({
                     onChange={(e) =>
                       setKoTargetStage(e.target.value as 'liguilla' | 'semifinal' | 'final')
                     }
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   >
                     <option value="liguilla">Liguilla (Llaves directas)</option>
                     <option value="semifinal">Semifinales (4 mejores)</option>
@@ -773,13 +899,13 @@ export default function ProgramacionView({
 
                 {koTargetStage === 'liguilla' && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                       Cantidad de clasificados
                     </label>
                     <select
                       value={koQualifiers}
                       onChange={(e) => setKoQualifiers(Number(e.target.value))}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
+                      className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                     >
                       <option value={4}>Top 4 equipos</option>
                       <option value={6}>Top 6 equipos</option>
@@ -790,17 +916,17 @@ export default function ProgramacionView({
               </div>
 
               {koTargetStage === 'liguilla' && previewQualifiers.length > 0 && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                  <p className="text-xs font-semibold text-slate-700 mb-2">
+                <div className="rounded-xl border border-white/[0.08] bg-[#0F172A] p-3.5">
+                  <p className="text-xs font-semibold text-[#10B981] mb-2">
                     Clasificados actuales según Tabla de Posiciones:
                   </p>
-                  <ul className="space-y-1 text-xs text-slate-700">
+                  <ul className="space-y-1 text-xs text-[#CBD5E1]">
                     {previewQualifiers.map((row) => (
                       <li key={row.team.id} className="flex items-center justify-between">
                         <span>
-                          <strong className="tabular-nums">{row.position}°</strong> {row.team.name}
+                          <strong className="tabular-nums text-[#F8FAFC]">{row.position}°</strong> {row.team.name}
                         </span>
-                        <span className="font-mono tabular-nums text-slate-500">
+                        <span className="font-mono tabular-nums text-[#94A3B8]">
                           {row.points} pts · DG {row.goalDifference >= 0 ? `+${row.goalDifference}` : row.goalDifference}
                         </span>
                       </li>
@@ -811,25 +937,25 @@ export default function ProgramacionView({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Fecha programada
                   </label>
                   <input
                     type="date"
                     value={koStartDate}
                     onChange={(e) => setKoStartDate(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm tabular-nums"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] tabular-nums focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                     Sede
                   </label>
                   <input
                     type="text"
                     value={koVenue}
                     onChange={(e) => setKoVenue(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm"
+                    className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
               </div>
@@ -838,14 +964,14 @@ export default function ProgramacionView({
                 <button
                   type="button"
                   onClick={() => setShowKnockoutModal(false)}
-                  className="h-10 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700"
+                  className="h-10 px-4 rounded-xl border border-white/[0.1] bg-[#1E293B] text-sm font-medium text-[#F8FAFC] hover:bg-[#273549]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60"
+                  className="h-10 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] disabled:opacity-60"
                 >
                   {saving ? 'Creando llaves...' : 'Generar cruces'}
                 </button>
@@ -855,42 +981,52 @@ export default function ProgramacionView({
         </div>
       )}
 
-      {/* Modal: Registrar resultado / Editar partido */}
+      {/* Modal: Registrar resultado, amonestaciones y editar partido */}
       {editingMatch && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
-                Marcador y estado del encuentro
-              </h2>
+          <div className="w-full max-w-xl rounded-2xl bg-[#111827] border border-white/[0.1] shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-[#F8FAFC]">
+                  Marcador y amonestaciones del encuentro
+                </h2>
+                <p className="text-xs text-[#94A3B8] mt-0.5">
+                  {teamMap.get(editingMatch.homeTeamId)?.name || 'Local'} vs{' '}
+                  {teamMap.get(editingMatch.awayTeamId)?.name || 'Visitante'}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingMatch(null)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSaveMatchResult} className="p-6 space-y-4">
+
+            <form
+              onSubmit={handleSaveMatchResult}
+              className="p-6 space-y-5 overflow-y-auto overscroll-contain flex-1"
+            >
               {editError && (
-                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                <div className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-3 text-sm text-rose-200">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                   <span>{editError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#CBD5E1] mb-1">
                   Estado del partido
                 </label>
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value as MatchStatus)}
-                  className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm bg-white"
+                  className="w-full h-11 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-sm text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                 >
                   <option value="programado">Programado (Sin iniciar)</option>
                   <option value="en_juego">En Juego (Marcador parcial)</option>
@@ -899,9 +1035,9 @@ export default function ProgramacionView({
               </div>
 
               {editStatus !== 'programado' && (
-                <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3 p-4 rounded-xl bg-[#0F172A] border border-white/[0.08]">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 truncate">
+                    <label className="block text-xs font-semibold text-[#CBD5E1] mb-1 truncate">
                       {teamMap.get(editingMatch.homeTeamId)?.name || 'Local'}
                     </label>
                     <input
@@ -910,12 +1046,12 @@ export default function ProgramacionView({
                       max={99}
                       value={editHomeScore}
                       onChange={(e) => setEditHomeScore(e.target.value)}
-                      className="w-full h-12 text-center text-xl font-bold font-mono tabular-nums rounded-xl border border-slate-300 bg-white"
+                      className="w-full h-12 text-center text-xl font-bold font-mono tabular-nums rounded-xl border border-white/[0.1] bg-[#111827] text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
-                  <span className="pb-3 font-bold text-slate-400">:</span>
+                  <span className="pb-3 font-bold text-[#64748B]">:</span>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 text-right truncate">
+                    <label className="block text-xs font-semibold text-[#CBD5E1] mb-1 text-right truncate">
                       {teamMap.get(editingMatch.awayTeamId)?.name || 'Visitante'}
                     </label>
                     <input
@@ -924,7 +1060,7 @@ export default function ProgramacionView({
                       max={99}
                       value={editAwayScore}
                       onChange={(e) => setEditAwayScore(e.target.value)}
-                      className="w-full h-12 text-center text-xl font-bold font-mono tabular-nums rounded-xl border border-slate-300 bg-white"
+                      className="w-full h-12 text-center text-xl font-bold font-mono tabular-nums rounded-xl border border-white/[0.1] bg-[#111827] text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
                 </div>
@@ -932,41 +1068,234 @@ export default function ProgramacionView({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#94A3B8] mb-1">
                     Fecha y hora
                   </label>
                   <input
                     type="datetime-local"
                     value={editDateTime}
                     onChange={(e) => setEditDateTime(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-300 text-xs tabular-nums"
+                    className="w-full h-10 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs text-[#F8FAFC] tabular-nums focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#94A3B8] mb-1">
                     Sede
                   </label>
                   <input
                     type="text"
                     value={editVenue}
                     onChange={(e) => setEditVenue(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-300 text-xs"
+                    className="w-full h-10 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
+              </div>
+
+              {/* Sección de Amonestaciones del encuentro (Tarjetas Amarillas y Rojas) */}
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0F172A] p-4 space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[#F8FAFC] inline-flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span>Amonestaciones del encuentro (Tarjetas)</span>
+                  </span>
+                  <span className="text-[11px] text-[#94A3B8] tabular-nums">
+                    {editingMatchCards.length}{' '}
+                    {editingMatchCards.length === 1 ? 'registrada' : 'registradas'}
+                  </span>
+                </div>
+
+                {cardError && (
+                  <div className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-2.5 text-xs text-rose-200">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
+                    <span>{cardError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Equipo
+                    </label>
+                    <select
+                      value={cardTeamId}
+                      onChange={(e) => handleCardTeamChange(e.target.value)}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
+                    >
+                      <option value={editingMatch.homeTeamId}>
+                        {teamMap.get(editingMatch.homeTeamId)?.name || 'Local'}
+                      </option>
+                      <option value={editingMatch.awayTeamId}>
+                        {teamMap.get(editingMatch.awayTeamId)?.name || 'Visitante'}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Jugador amonestado
+                    </label>
+                    <select
+                      value={cardPlayerId}
+                      onChange={(e) => setCardPlayerId(e.target.value)}
+                      disabled={cardTeamPlayers.length === 0}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-[#F8FAFC] disabled:opacity-50 focus:outline-none focus:border-[#10B981]"
+                    >
+                      {cardTeamPlayers.length === 0 ? (
+                        <option value="">Sin jugadores registrados</option>
+                      ) : (
+                        cardTeamPlayers.map((pl) => (
+                          <option key={pl.id} value={pl.id}>
+                            #{pl.jerseyNumber} — {pl.fullName}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr] gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Tipo de tarjeta
+                    </label>
+                    <select
+                      value={cardType}
+                      onChange={(e) => setCardType(e.target.value as CardType)}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
+                    >
+                      <option value="amarilla">Tarjeta Amarilla</option>
+                      <option value="roja">Tarjeta Roja</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#94A3B8] mb-1">
+                      Motivo / detalle (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={cardNotes}
+                      onChange={(e) => setCardNotes(e.target.value)}
+                      placeholder="Ej. Falta táctica min. 32"
+                      maxLength={120}
+                      className="w-full h-9 px-2.5 rounded-lg border border-white/[0.1] bg-[#111827] text-xs text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-[#10B981]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                  <label className="inline-flex items-center gap-2 text-xs text-[#CBD5E1] cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={cardRegularized}
+                      onChange={(e) => setCardRegularized(e.target.checked)}
+                      className="w-4 h-4 accent-[#10B981] rounded"
+                    />
+                    <span>Penalidad regularizada</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleAddMatchCard}
+                    disabled={savingCard || cardTeamPlayers.length === 0}
+                    className="h-9 px-3.5 rounded-lg bg-[#1E293B] border border-[#10B981]/35 hover:bg-[#273549] text-xs font-semibold text-[#10B981] disabled:opacity-50 inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{savingCard ? 'Agregando...' : 'Agregar amonestación'}</span>
+                  </button>
+                </div>
+
+                {/* Lista de tarjetas ya registradas en este partido */}
+                {editingMatchCards.length > 0 && (
+                  <div className="divide-y divide-white/[0.06] border border-white/[0.08] rounded-xl overflow-hidden bg-[#111827]">
+                    {editingMatchCards.map((card) => {
+                      const pl = playerMap.get(card.playerId);
+                      const tm = teamMap.get(card.teamId);
+                      return (
+                        <div
+                          key={card.id}
+                          className="p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`w-2.5 h-4 rounded-[2px] shrink-0 ${
+                                card.cardType === 'amarilla'
+                                  ? 'bg-amber-400'
+                                  : 'bg-rose-500'
+                              }`}
+                              title={
+                                card.cardType === 'amarilla'
+                                  ? 'Tarjeta Amarilla'
+                                  : 'Tarjeta Roja'
+                              }
+                            />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-[#F8FAFC] truncate">
+                                #{pl?.jerseyNumber ?? '?'} {pl?.fullName || 'Jugador'}{' '}
+                                <span className="font-normal text-[#94A3B8]">
+                                  ({tm?.name || 'Equipo'})
+                                </span>
+                              </p>
+                              {card.notes && (
+                                <p className="text-[11px] text-[#94A3B8] truncate">
+                                  {card.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={card.penaltyRegularized}
+                                onChange={(e) =>
+                                  onUpdateMatchCard({
+                                    ...card,
+                                    penaltyRegularized: e.target.checked,
+                                  })
+                                }
+                                className="w-4 h-4 accent-[#10B981] rounded"
+                              />
+                              <span
+                                className={
+                                  card.penaltyRegularized
+                                    ? 'text-[#10B981] font-medium'
+                                    : 'text-amber-300 font-medium'
+                                }
+                              >
+                                {card.penaltyRegularized ? 'Regularizada' : 'Pendiente'}
+                              </span>
+                            </label>
+
+                            <button
+                              type="button"
+                              onClick={() => onDeleteMatchCard(card.id)}
+                              aria-label="Eliminar amonestación"
+                              className="h-7 w-7 rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingMatch(null)}
-                  className="h-10 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700"
+                  className="h-10 px-4 rounded-xl border border-white/[0.1] bg-[#1E293B] text-sm font-medium text-[#F8FAFC] hover:bg-[#273549]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] inline-flex items-center gap-2"
+                  className="h-10 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] inline-flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{saving ? 'Guardando...' : 'Guardar cambios'}</span>

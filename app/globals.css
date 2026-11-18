@@ -11,6 +11,9 @@
   html {
     font-family: var(--font-body);
     scroll-behavior: smooth;
+    color-scheme: dark;
+    background-color: #090E17;
+    color: #F8FAFC;
   }
 
   h1, h2, h3, h4, .font-display {

@@ -371,70 +371,70 @@ export default function InicioView({
   return (
     <div className="space-y-10">
       {/* Hero Institucional U.E. 410 con Portada Personalizable */}
-      <section className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
-        <div className="relative h-64 sm:h-80 lg:h-96 w-full">
+      <section className="rounded-2xl overflow-hidden border border-white/[0.08] bg-[#111827]">
+        <div className="relative h-64 sm:h-80 lg:h-96 w-full bg-[#1E293B]">
           <SafeImage
             src={championship.heroImageUrl || '/images/hero-hospital-stadium.jpg'}
             alt="Campeonato Interno de Aniversario U.E. 410 Hospital de Quillabamba"
             className="w-full h-full object-cover transition-all duration-300"
             style={{ objectPosition: championship.heroImagePosition || '50% 50%' }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#090E17] via-[#090E17]/60 to-[#090E17]/20" />
 
           {adminUser && (
             <button
               type="button"
               onClick={openCoverEditor}
-              className="absolute top-4 right-4 z-10 h-10 px-3.5 rounded-xl bg-slate-950/75 hover:bg-slate-950/90 text-white border border-white/20 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
+              className="absolute top-4 right-4 z-10 h-10 px-3.5 rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/35 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
             >
-              <Camera className="w-4 h-4 text-emerald-300" />
+              <Camera className="w-4 h-4 text-[#10B981]" />
               <span>Cambiar y posicionar portada</span>
             </button>
           )}
 
-          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10 text-white">
-            <p className="text-xs sm:text-sm font-medium text-emerald-300 tracking-wide mb-2">
+          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10 text-[#F8FAFC]">
+            <p className="text-xs sm:text-sm font-semibold text-[#10B981] tracking-wide mb-2">
               Aniversario U.E. 410 · Hospital de Quillabamba · Temporada {championship.seasonYear}
             </p>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight max-w-3xl text-balance">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight max-w-3xl text-balance text-[#F8FAFC]">
               {championship.name}
             </h1>
-            <p className="text-sm sm:text-base text-slate-200 mt-2 max-w-2xl line-clamp-2">
+            <p className="text-sm sm:text-base text-[#CBD5E1] mt-2 max-w-2xl line-clamp-2">
               {championship.description}
             </p>
           </div>
         </div>
 
         {/* Franja de indicadores clave */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 divide-x divide-slate-200 bg-white">
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 divide-x divide-white/[0.08] bg-[#111827]">
           <div className="p-4 sm:p-5">
-            <p className="text-xs font-medium text-slate-500">Equipos inscritos</p>
-            <p className="text-2xl font-bold text-slate-900 tabular-nums mt-1">
+            <p className="text-xs font-medium text-[#94A3B8]">Equipos inscritos</p>
+            <p className="text-2xl font-bold text-[#F8FAFC] tabular-nums mt-1">
               {teams.length}
             </p>
           </div>
           <div className="p-4 sm:p-5">
-            <p className="text-xs font-medium text-slate-500">Encuentros jugados</p>
-            <p className="text-2xl font-bold text-slate-900 tabular-nums mt-1">
+            <p className="text-xs font-medium text-[#94A3B8]">Encuentros jugados</p>
+            <p className="text-2xl font-bold text-[#F8FAFC] tabular-nums mt-1">
               {finishedMatches.length}{' '}
-              <span className="text-sm font-normal text-slate-400">
+              <span className="text-sm font-normal text-[#94A3B8]">
                 / {matches.length}
               </span>
             </p>
           </div>
           <div className="p-4 sm:p-5">
-            <p className="text-xs font-medium text-slate-500">Goles / Puntos totales</p>
-            <p className="text-2xl font-bold text-slate-900 tabular-nums mt-1">
+            <p className="text-xs font-medium text-[#94A3B8]">Goles / Puntos totales</p>
+            <p className="text-2xl font-bold text-[#06B6D4] tabular-nums mt-1">
               {totalGoals}
             </p>
           </div>
           <div className="p-4 sm:p-5">
-            <p className="text-xs font-medium text-slate-500">Líder actual</p>
-            <p className="text-base sm:text-lg font-bold text-[#0D5C63] truncate mt-1">
+            <p className="text-xs font-medium text-[#94A3B8]">Líder actual</p>
+            <p className="text-base sm:text-lg font-bold text-[#10B981] truncate mt-1">
               {leader ? leader.team.name : 'Por definir'}
             </p>
             {leader && (
-              <p className="text-xs text-slate-500 tabular-nums">
+              <p className="text-xs text-[#94A3B8] tabular-nums">
                 {leader.points} pts · DG {leader.goalDifference >= 0 ? `+${leader.goalDifference}` : leader.goalDifference}
               </p>
             )}
@@ -448,18 +448,18 @@ export default function InicioView({
           <div>
             <h2
               id="proximos-encuentros-heading"
-              className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight"
+              className="text-xl sm:text-2xl font-bold text-[#F8FAFC] tracking-tight"
             >
               Próximos encuentros programados
             </h2>
-            <p className="text-sm text-slate-600 mt-0.5">
+            <p className="text-sm text-[#94A3B8] mt-0.5">
               Partidos más cercanos a la fecha con sede, horario y fase oficial.
             </p>
           </div>
           <button
             type="button"
             onClick={() => onNavigate('programacion')}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0D5C63] hover:text-[#094348] transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#06B6D4] hover:text-[#22D3EE] transition-colors whitespace-nowrap"
           >
             <span>Ver programación completa</span>
             <ArrowRight className="w-4 h-4" />
@@ -467,19 +467,19 @@ export default function InicioView({
         </div>
 
         {upcomingMatches.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-            <Calendar className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <h3 className="text-base font-semibold text-slate-900">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111827] p-8 text-center">
+            <Calendar className="w-8 h-8 text-[#94A3B8] mx-auto mb-2" />
+            <h3 className="text-base font-semibold text-[#F8FAFC]">
               No hay encuentros pendientes en este campeonato
             </h3>
-            <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
+            <p className="text-sm text-[#94A3B8] mt-1 max-w-md mx-auto">
               Todos los partidos programados han concluido o aún no se ha generado la programación inicial.
             </p>
             {adminUser && (
               <button
                 type="button"
                 onClick={() => onNavigate('programacion')}
-                className="mt-4 h-10 px-4 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] transition-colors"
+                className="mt-4 h-10 px-4 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] transition-colors"
               >
                 Ir a Programación
               </button>
@@ -490,80 +490,82 @@ export default function InicioView({
             {upcomingMatches.map((match) => {
               const home = teamMap.get(match.homeTeamId);
               const away = teamMap.get(match.awayTeamId);
+              const isLive = match.status === 'en_juego';
+
               return (
                 <article
                   key={match.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-slate-300 transition-colors"
+                  className="rounded-2xl border border-white/[0.08] bg-[#111827] p-5 hover:border-[#10B981]/30 transition-colors"
                 >
-                  <div className="flex items-center justify-between gap-2 text-xs text-slate-500 pb-3 border-b border-slate-100">
-                    <span className="font-medium text-[#0D5C63]">
+                  <div className="flex items-center justify-between gap-2 text-xs text-[#94A3B8] pb-3 border-b border-white/[0.06]">
+                    <span className="font-semibold text-[#10B981]">
                       {STAGE_LABELS[match.stage]} · Jornada {match.matchday}
                     </span>
-                    <span className="tabular-nums font-medium text-slate-700">
-                      {match.status === 'en_juego' ? 'En juego ahora' : 'Programado'}
+                    <span
+                      className={`tabular-nums font-semibold ${
+                        isLive ? 'text-[#06B6D4]' : 'text-[#94A3B8]'
+                      }`}
+                    >
+                      {isLive ? 'En juego ahora' : 'Programado'}
                     </span>
                   </div>
 
                   <div className="py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <span
-                          className="w-2.5 h-2.5 rounded-sm shrink-0"
-                          style={{ backgroundColor: home?.primaryColor || '#0D5C63' }}
+                          className="w-3 h-3 rounded-[4px] shrink-0 ring-1 ring-white/20"
+                          style={{ backgroundColor: home?.primaryColor || '#10B981' }}
                         />
-                        <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                        <p className="text-sm sm:text-base font-bold text-[#F8FAFC] truncate">
                           {home?.name || 'Equipo Local'}
                         </p>
                       </div>
-                      {home?.serviceArea && (
-                        <p className="text-xs text-slate-500 truncate pl-4 mt-0.5">
-                          {home.serviceArea}
-                        </p>
-                      )}
                     </div>
 
-                    <div className="px-3 py-1.5 rounded-xl bg-slate-100 text-center min-w-[68px]">
-                      {match.status === 'en_juego' &&
+                    <div
+                      className={`px-3 py-1.5 rounded-xl text-center min-w-[72px] border ${
+                        isLive
+                          ? 'bg-[#06B6D4]/15 border-[#06B6D4]/40 text-[#06B6D4]'
+                          : 'bg-[#0F172A] border-white/[0.08] text-[#F8FAFC]'
+                      }`}
+                    >
+                      {isLive &&
                       match.homeScore !== null &&
                       match.awayScore !== null ? (
-                        <span className="text-base font-bold font-mono tabular-nums text-slate-900">
+                        <span className="text-base font-bold font-mono tabular-nums">
                           {match.homeScore} - {match.awayScore}
                         </span>
                       ) : (
-                        <span className="text-sm font-bold font-mono tabular-nums text-slate-800">
+                        <span className="text-sm font-bold font-mono tabular-nums">
                           {formatMatchTime(match.scheduledAt)}
                         </span>
                       )}
                     </div>
 
                     <div className="min-w-0 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                      <div className="flex items-center justify-end gap-2.5">
+                        <p className="text-sm sm:text-base font-bold text-[#F8FAFC] truncate">
                           {away?.name || 'Equipo Visitante'}
                         </p>
                         <span
-                          className="w-2.5 h-2.5 rounded-sm shrink-0"
-                          style={{ backgroundColor: away?.primaryColor || '#059669' }}
+                          className="w-3 h-3 rounded-[4px] shrink-0 ring-1 ring-white/20"
+                          style={{ backgroundColor: away?.primaryColor || '#06B6D4' }}
                         />
                       </div>
-                      {away?.serviceArea && (
-                        <p className="text-xs text-slate-500 truncate pr-4 mt-0.5">
-                          {away.serviceArea}
-                        </p>
-                      )}
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  <div className="pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-2 text-xs text-[#94A3B8]">
                     <span className="inline-flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <Calendar className="w-3.5 h-3.5 text-[#06B6D4]" />
                       <span className="tabular-nums">{formatMatchDate(match.scheduledAt)}</span>
                       <span aria-hidden="true">·</span>
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <Clock className="w-3.5 h-3.5 text-[#06B6D4]" />
                       <span className="tabular-nums">{formatMatchTime(match.scheduledAt)} h</span>
                     </span>
                     <span className="inline-flex items-center gap-1 truncate max-w-[220px]">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                       <span className="truncate">{match.venue}</span>
                     </span>
                   </div>
@@ -579,11 +581,11 @@ export default function InicioView({
         <div className="mb-5">
           <h2
             id="noticias-heading"
-            className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight"
+            className="text-xl sm:text-2xl font-bold text-[#F8FAFC] tracking-tight"
           >
             Noticias y galería del campeonato
           </h2>
-          <p className="text-sm text-slate-600 mt-0.5">
+          <p className="text-sm text-[#94A3B8] mt-0.5">
             Crónicas e imágenes oficiales. Reacciona y deja tus comentarios de aliento sin necesidad de registrarte.
           </p>
         </div>
@@ -592,21 +594,21 @@ export default function InicioView({
         {adminUser && (
           <form
             onSubmit={handlePublishNews}
-            className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 space-y-4"
+            className="mb-8 rounded-2xl border border-white/[0.08] bg-[#111827] p-5 space-y-4"
           >
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-[#F8FAFC]">
                 Publicar nueva noticia con fotografía
               </h3>
-              <span className="text-xs text-slate-500">{adminUser.name}</span>
+              <span className="text-xs text-[#10B981] font-medium">{adminUser.name}</span>
             </div>
 
             {formError && (
               <div
                 role="alert"
-                className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800"
+                className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-3 text-sm text-rose-200"
               >
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                 <span>{formError}</span>
               </div>
             )}
@@ -614,7 +616,7 @@ export default function InicioView({
             <div>
               <label
                 htmlFor="news-commentary"
-                className="block text-xs font-medium text-slate-600 mb-1.5"
+                className="block text-xs font-medium text-[#94A3B8] mb-1.5"
               >
                 Comentario previo (se mostrará encima de la fotografía)
               </label>
@@ -624,12 +626,12 @@ export default function InicioView({
                 value={commentary}
                 onChange={(e) => setCommentary(e.target.value)}
                 placeholder="Comparte una crónica del partido, resultado destacado o comunicado del aniversario U.E. 410..."
-                className="w-full p-3.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/25 focus:border-[#0D5C63]"
+                className="w-full p-3.5 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981]"
               />
             </div>
 
             {previewUrl && (
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+              <div className="relative rounded-[12px] overflow-hidden border-[1.5px] border-[#10B981]/30 bg-[#1E293B]">
                 <img
                   src={previewUrl}
                   alt="Vista previa de publicación"
@@ -639,7 +641,7 @@ export default function InicioView({
                   type="button"
                   onClick={clearSelectedImage}
                   aria-label="Quitar fotografía seleccionada"
-                  className="absolute top-3 right-3 h-9 w-9 rounded-full bg-slate-900/75 text-white flex items-center justify-center hover:bg-slate-900 transition-colors"
+                  className="absolute top-3 right-3 h-9 w-9 rounded-full bg-[#090E17]/85 text-[#F8FAFC] border border-white/15 flex items-center justify-center hover:bg-[#090E17] transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -658,13 +660,13 @@ export default function InicioView({
                 />
                 <label
                   htmlFor="news-photo-upload"
-                  className="cursor-pointer h-10 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-medium text-slate-700 inline-flex items-center gap-2 transition-colors"
+                  className="cursor-pointer h-10 px-4 rounded-xl border border-white/[0.12] bg-[#1E293B] hover:bg-[#273549] text-sm font-medium text-[#F8FAFC] inline-flex items-center gap-2 transition-colors"
                 >
-                  <ImagePlus className="w-4 h-4 text-[#0D5C63]" />
+                  <ImagePlus className="w-4 h-4 text-[#10B981]" />
                   <span>{selectedFile ? 'Cambiar fotografía' : 'Subir fotografía'}</span>
                 </label>
                 {selectedFile && (
-                  <span className="text-xs text-slate-500 truncate max-w-[180px]">
+                  <span className="text-xs text-[#94A3B8] truncate max-w-[180px]">
                     {selectedFile.name}
                   </span>
                 )}
@@ -673,7 +675,7 @@ export default function InicioView({
               <button
                 type="submit"
                 disabled={submitting}
-                className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+                className="h-10 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] disabled:opacity-60 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
               >
                 <Send className="w-4 h-4" />
                 <span>{submitting ? 'Publicando...' : 'Publicar noticia'}</span>
@@ -684,12 +686,12 @@ export default function InicioView({
 
         {/* Feed de publicaciones */}
         {sortedNews.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
-            <Camera className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <h3 className="text-base font-semibold text-slate-900">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111827] p-10 text-center">
+            <Camera className="w-8 h-8 text-[#94A3B8] mx-auto mb-2" />
+            <h3 className="text-base font-semibold text-[#F8FAFC]">
               Aún no hay noticias publicadas en este campeonato
             </h3>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-[#94A3B8] mt-1">
               El administrador podrá compartir fotografías y comentarios de cada fecha aquí.
             </p>
           </div>
@@ -716,19 +718,19 @@ export default function InicioView({
               return (
                 <article
                   key={post.id}
-                  className="rounded-2xl border border-slate-200 bg-white overflow-hidden"
+                  className="rounded-2xl border border-white/[0.08] bg-[#111827] overflow-hidden"
                 >
                   {/* Cabecera del post */}
                   <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-[#0D5C63] text-white font-bold text-sm flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-[12px] bg-[#1E293B] border-[1.5px] border-[#10B981]/30 text-[#10B981] font-extrabold text-xs flex items-center justify-center shrink-0">
                         410
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">
+                        <p className="text-sm font-bold text-[#F8FAFC] truncate">
                           {post.authorName}
                         </p>
-                        <p className="text-xs text-slate-500 tabular-nums">
+                        <p className="text-xs text-[#94A3B8] tabular-nums">
                           {formatNewsTimestamp(post.publishedAt)} · U.E. 410 Hospital de Quillabamba
                         </p>
                       </div>
@@ -744,14 +746,14 @@ export default function InicioView({
                                 await onDeleteNewsPost(post.id);
                                 setConfirmDeleteId(null);
                               }}
-                              className="h-8 px-2.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors"
+                              className="h-8 px-2.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500 transition-colors"
                             >
                               Confirmar
                             </button>
                             <button
                               type="button"
                               onClick={() => setConfirmDeleteId(null)}
-                              className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                              className="h-8 px-2.5 rounded-lg border border-white/[0.12] bg-[#1E293B] text-xs font-medium text-[#CBD5E1] hover:bg-[#273549]"
                             >
                               Cancelar
                             </button>
@@ -761,7 +763,7 @@ export default function InicioView({
                             type="button"
                             onClick={() => setConfirmDeleteId(post.id)}
                             aria-label="Eliminar noticia"
-                            className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -772,25 +774,27 @@ export default function InicioView({
 
                   {/* Comentario previo superior */}
                   <div className="px-5 pb-3.5">
-                    <p className="text-sm sm:text-[15px] leading-relaxed text-slate-800 whitespace-pre-line">
+                    <p className="text-sm sm:text-[15px] leading-relaxed text-[#E2E8F0] whitespace-pre-line">
                       {post.commentary}
                     </p>
                   </div>
 
                   {/* Fotografía inferior */}
                   {post.imageUrl && (
-                    <div className="w-full bg-slate-100 border-t border-b border-slate-100">
-                      <SafeImage
-                        src={post.imageUrl}
-                        alt={post.commentary.slice(0, 80)}
-                        className="w-full max-h-[520px] object-cover"
-                        fallbackLabel="Fotografía de noticia no disponible"
-                      />
+                    <div className="px-5 pb-4">
+                      <div className="w-full rounded-[12px] overflow-hidden bg-[#1E293B] border-[1.5px] border-[#10B981]/30">
+                        <SafeImage
+                          src={post.imageUrl}
+                          alt={post.commentary.slice(0, 80)}
+                          className="w-full max-h-[520px] object-cover"
+                          fallbackLabel="Fotografía de noticia no disponible"
+                        />
+                      </div>
                     </div>
                   )}
 
                   {/* Barra de Reacciones Múltiples (sin necesidad de login) */}
-                  <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/40 space-y-2.5">
+                  <div className="px-5 py-3.5 border-t border-b border-white/[0.06] bg-[#0F172A]/60 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div
                         className="flex flex-wrap items-center gap-2"
@@ -816,8 +820,8 @@ export default function InicioView({
                               transition={{ duration: 0.25 }}
                               className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 transition-all active:scale-95 ${
                                 isSelected
-                                  ? `${opt.activeBgClass} ${opt.activeBorderClass} ${opt.activeTextClass} font-semibold shadow-xs`
-                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                                  ? `${opt.activeBgClass} ${opt.activeBorderClass} ${opt.activeTextClass} font-semibold`
+                                  : 'bg-[#1E293B] border-white/[0.08] text-[#CBD5E1] hover:bg-[#273549] hover:border-white/[0.16]'
                               }`}
                               aria-pressed={isSelected}
                             >
@@ -840,8 +844,8 @@ export default function InicioView({
                         })}
                       </div>
 
-                      <span className="text-xs text-slate-500 tabular-nums inline-flex items-center gap-1.5">
-                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-xs text-[#94A3B8] tabular-nums inline-flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-[#06B6D4]" />
                         <span>
                           {postComments.length}{' '}
                           {postComments.length === 1 ? 'comentario' : 'comentarios'}
@@ -850,34 +854,34 @@ export default function InicioView({
                     </div>
 
                     {reactionErrors[post.id] && (
-                      <p role="alert" className="text-xs text-red-600 font-medium">
+                      <p role="alert" className="text-xs text-rose-400 font-medium">
                         {reactionErrors[post.id]}
                       </p>
                     )}
                   </div>
 
                   {/* Sección de Comentarios Públicos */}
-                  <div className="px-5 py-4 space-y-4 bg-white">
+                  <div className="px-5 py-4 space-y-4 bg-[#111827]">
                     {postComments.length > 0 && (
                       <div className="space-y-3">
                         {postComments.map((cmt) => (
                           <div
                             key={cmt.id}
-                            className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-2.5 flex items-start justify-between gap-2.5"
+                            className="rounded-xl bg-[#0F172A] border border-white/[0.06] px-3.5 py-2.5 flex items-start justify-between gap-2.5"
                           >
                             <div className="min-w-0 space-y-0.5">
                               <div className="flex flex-wrap items-center gap-2 text-xs">
-                                <span className="font-bold text-slate-900">
+                                <span className="font-bold text-[#F8FAFC]">
                                   {cmt.authorAlias}
                                 </span>
-                                <span className="text-slate-400" aria-hidden="true">
+                                <span className="text-[#475569]" aria-hidden="true">
                                   ·
                                 </span>
-                                <span className="text-slate-500 tabular-nums">
+                                <span className="text-[#94A3B8] tabular-nums">
                                   {formatNewsTimestamp(cmt.createdAt)}
                                 </span>
                               </div>
-                              <p className="text-sm text-slate-800 whitespace-pre-line break-words">
+                              <p className="text-sm text-[#CBD5E1] whitespace-pre-line break-words">
                                 {cmt.content}
                               </p>
                             </div>
@@ -887,7 +891,7 @@ export default function InicioView({
                                 type="button"
                                 onClick={() => onDeleteComment(cmt.id)}
                                 aria-label="Eliminar comentario"
-                                className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors"
+                                className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 shrink-0 transition-colors"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -905,9 +909,9 @@ export default function InicioView({
                       {commentErrors[post.id] && (
                         <div
                           role="alert"
-                          className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-2.5 text-xs text-red-800"
+                          className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-2.5 text-xs text-rose-200"
                         >
-                          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                           <span>{commentErrors[post.id]}</span>
                         </div>
                       )}
@@ -937,7 +941,7 @@ export default function InicioView({
                             updateDraft(post.id, 'alias', e.target.value)
                           }
                           placeholder="Tu nombre o alias (opcional)"
-                          className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/20 focus:border-[#0D5C63]"
+                          className="h-10 px-3 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs sm:text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/25 focus:border-[#10B981]"
                         />
 
                         <div className="flex items-center gap-2">
@@ -950,9 +954,9 @@ export default function InicioView({
                                 updateDraft(post.id, 'content', e.target.value)
                               }
                               placeholder="Escribe un comentario..."
-                              className="w-full h-10 pl-3 pr-14 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/20 focus:border-[#0D5C63]"
+                              className="w-full h-10 pl-3 pr-14 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs sm:text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/25 focus:border-[#10B981]"
                             />
-                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono tabular-nums text-slate-400">
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono tabular-nums text-[#64748B]">
                               {draft.content.length}/500
                             </span>
                           </div>
@@ -960,7 +964,7 @@ export default function InicioView({
                           <button
                             type="submit"
                             disabled={Boolean(commentSubmitting[post.id])}
-                            className="h-10 px-4 rounded-xl bg-[#0D5C63] text-white text-xs sm:text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                            className="h-10 px-4 rounded-xl bg-[#10B981] text-[#022C22] text-xs sm:text-sm font-bold hover:bg-[#34D399] disabled:opacity-60 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
                           >
                             <Send className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">
@@ -981,25 +985,25 @@ export default function InicioView({
       {/* Modal Administrador: Cambiar y posicionar foto principal de portada */}
       {showCoverModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           role="dialog"
           aria-modal="true"
           aria-labelledby="cover-modal-title"
         >
-          <div className="w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <div className="w-full max-w-2xl rounded-2xl bg-[#111827] border border-white/[0.1] shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between shrink-0">
               <div>
-                <h2 id="cover-modal-title" className="text-lg font-bold text-slate-900">
+                <h2 id="cover-modal-title" className="text-lg font-bold text-[#F8FAFC]">
                   Personalizar foto principal de portada
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-[#94A3B8] mt-0.5">
                   Sube una fotografía institucional y ajusta el encuadre exacto para el inicio.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCoverModal(false)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1010,27 +1014,27 @@ export default function InicioView({
               className="p-6 space-y-5 overflow-y-auto overscroll-contain flex-1"
             >
               {coverError && (
-                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                <div className="flex items-start gap-2 rounded-xl bg-rose-950/60 border border-rose-500/40 p-3 text-sm text-rose-200">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                   <span>{coverError}</span>
                 </div>
               )}
 
               {/* Vista previa en vivo del encuadre */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-700">
+                <p className="text-xs font-semibold text-[#CBD5E1]">
                   Vista previa en tiempo real ({coverPosX}% horizontal · {coverPosY}% vertical)
                 </p>
-                <div className="relative h-56 sm:h-64 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
+                <div className="relative h-56 sm:h-64 w-full rounded-[12px] overflow-hidden border-[1.5px] border-[#10B981]/30 bg-[#1E293B]">
                   <img
                     src={coverPreviewUrl || '/images/hero-hospital-stadium.jpg'}
                     alt="Vista previa de portada"
                     className="w-full h-full object-cover"
                     style={{ objectPosition: `${coverPosX}% ${coverPosY}%` }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent pointer-events-none" />
-                  <div className="absolute bottom-4 left-4 right-4 text-white pointer-events-none">
-                    <p className="text-xs text-emerald-300 font-medium">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#090E17]/90 via-[#090E17]/40 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 right-4 text-[#F8FAFC] pointer-events-none">
+                    <p className="text-xs text-[#10B981] font-semibold">
                       U.E. 410 Hospital de Quillabamba
                     </p>
                     <p className="text-base font-bold truncate">{championship.name}</p>
@@ -1050,9 +1054,9 @@ export default function InicioView({
                 />
                 <label
                   htmlFor="hero-cover-upload"
-                  className="cursor-pointer h-10 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-medium text-slate-800 inline-flex items-center gap-2 transition-colors"
+                  className="cursor-pointer h-10 px-4 rounded-xl border border-white/[0.12] bg-[#1E293B] hover:bg-[#273549] text-xs sm:text-sm font-medium text-[#F8FAFC] inline-flex items-center gap-2 transition-colors"
                 >
-                  <ImagePlus className="w-4 h-4 text-[#0D5C63]" />
+                  <ImagePlus className="w-4 h-4 text-[#10B981]" />
                   <span>Subir nueva foto de portada</span>
                 </label>
 
@@ -1064,7 +1068,7 @@ export default function InicioView({
                     setCoverPosX(50);
                     setCoverPosY(50);
                   }}
-                  className="h-10 px-3.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"
+                  className="h-10 px-3.5 rounded-xl border border-white/[0.1] bg-[#0F172A] text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] inline-flex items-center gap-1.5"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Restaurar imagen predeterminada</span>
@@ -1072,10 +1076,10 @@ export default function InicioView({
               </div>
 
               {/* Controles de posición personalizada */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+              <div className="rounded-xl border border-white/[0.08] bg-[#0F172A] p-4 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-slate-800 inline-flex items-center gap-1.5">
-                    <Move className="w-4 h-4 text-[#0D5C63]" />
+                  <span className="text-xs font-semibold text-[#F8FAFC] inline-flex items-center gap-1.5">
+                    <Move className="w-4 h-4 text-[#10B981]" />
                     <span>Posición personalizada del encuadre</span>
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -1091,7 +1095,7 @@ export default function InicioView({
                           setCoverPosX(preset.x);
                           setCoverPosY(preset.y);
                         }}
-                        className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-medium text-slate-700"
+                        className="h-7 px-2.5 rounded-lg border border-white/[0.1] bg-[#1E293B] hover:bg-[#273549] text-xs font-medium text-[#CBD5E1]"
                       >
                         {preset.label}
                       </button>
@@ -1101,9 +1105,9 @@ export default function InicioView({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                    <div className="flex justify-between text-xs text-[#94A3B8] mb-1">
                       <span>Posición Horizontal (Izq ↔ Der)</span>
-                      <span className="font-mono tabular-nums font-semibold">
+                      <span className="font-mono tabular-nums font-semibold text-[#F8FAFC]">
                         {coverPosX}%
                       </span>
                     </div>
@@ -1113,13 +1117,13 @@ export default function InicioView({
                       max={100}
                       value={coverPosX}
                       onChange={(e) => setCoverPosX(Number(e.target.value))}
-                      className="w-full accent-[#0D5C63]"
+                      className="w-full accent-[#10B981]"
                     />
                   </div>
                   <div>
-                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                    <div className="flex justify-between text-xs text-[#94A3B8] mb-1">
                       <span>Posición Vertical (Arriba ↔ Abajo)</span>
-                      <span className="font-mono tabular-nums font-semibold">
+                      <span className="font-mono tabular-nums font-semibold text-[#F8FAFC]">
                         {coverPosY}%
                       </span>
                     </div>
@@ -1129,7 +1133,7 @@ export default function InicioView({
                       max={100}
                       value={coverPosY}
                       onChange={(e) => setCoverPosY(Number(e.target.value))}
-                      className="w-full accent-[#0D5C63]"
+                      className="w-full accent-[#10B981]"
                     />
                   </div>
                 </div>
@@ -1139,14 +1143,14 @@ export default function InicioView({
                 <button
                   type="button"
                   onClick={() => setShowCoverModal(false)}
-                  className="h-10 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700"
+                  className="h-10 px-4 rounded-xl border border-white/[0.1] bg-[#1E293B] text-sm font-medium text-[#F8FAFC] hover:bg-[#273549]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingCover}
-                  className="h-10 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60"
+                  className="h-10 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] disabled:opacity-60"
                 >
                   {savingCover ? 'Guardando portada...' : 'Guardar portada'}
                 </button>

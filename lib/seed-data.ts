@@ -446,6 +446,42 @@ export function getInitialSeedData(): AppStateSnapshot {
     },
   ];
 
+  const matchCards = [
+    {
+      id: 'card-1',
+      championshipId: champ1Id,
+      matchId: 'm-2',
+      teamId: 'team-emergencia',
+      playerId: 'pl-1',
+      cardType: 'amarilla' as const,
+      penaltyRegularized: true,
+      notes: 'Falta táctica 2T',
+      createdAt: '2026-11-10T17:15:00.000Z',
+    },
+    {
+      id: 'card-2',
+      championshipId: champ1Id,
+      matchId: 'm-4',
+      teamId: 'team-emergencia',
+      playerId: 'pl-3',
+      cardType: 'amarilla' as const,
+      penaltyRegularized: false,
+      notes: 'Reclamo arbitral',
+      createdAt: '2026-11-14T16:15:00.000Z',
+    },
+    {
+      id: 'card-3',
+      championshipId: champ1Id,
+      matchId: 'm-5',
+      teamId: 'team-cirugia',
+      playerId: 'pl-5',
+      cardType: 'roja' as const,
+      penaltyRegularized: false,
+      notes: 'Doble amarilla',
+      createdAt: '2026-11-14T17:20:00.000Z',
+    },
+  ];
+
   return {
     championships: [
       {
@@ -487,5 +523,6 @@ export function getInitialSeedData(): AppStateSnapshot {
     newsPosts,
     reactions,
     comments,
+    matchCards,
   };
 }

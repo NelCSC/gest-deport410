@@ -191,15 +191,15 @@ export default function ChampionshipModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#090E17]/80 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
       role="dialog"
       aria-modal="true"
       aria-labelledby="championship-modal-title"
     >
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
-        <div className="px-6 py-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50/70 shrink-0">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-[#111827] border border-white/[0.08] shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]">
+        <div className="px-6 py-5 border-b border-white/[0.08] flex items-start justify-between gap-4 bg-[#0F172A] shrink-0">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-[#0D5C63] mb-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#10B981] mb-1">
               <Trophy className="w-4 h-4" />
               <span>
                 {isPostLoginPrompt
@@ -209,11 +209,11 @@ export default function ChampionshipModal({
             </div>
             <h2
               id="championship-modal-title"
-              className="text-xl font-bold text-slate-900"
+              className="text-xl font-bold text-[#F8FAFC]"
             >
               Crear, editar o seleccionar campeonato
             </h2>
-            <p className="text-sm text-slate-600 mt-0.5">
+            <p className="text-sm text-[#94A3B8] mt-0.5">
               Cada campeonato encapsula sus propios equipos, jugadores, programación, noticias y tabla de posiciones.
             </p>
           </div>
@@ -225,32 +225,31 @@ export default function ChampionshipModal({
               onClose();
             }}
             aria-label="Cerrar modal"
-            className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-800 transition-colors"
+            className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-[#94A3B8] hover:bg-white/[0.06] hover:text-[#F8FAFC] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto overscroll-contain flex-1">
-          {/* Alerta característica de confirmación de eliminación */}
           {confirmDeleteChamp && (
             <div
               role="alertdialog"
               aria-labelledby="delete-champ-warning-title"
-              className="rounded-2xl border border-red-300 bg-red-50 p-4 space-y-3"
+              className="rounded-2xl border border-rose-500/40 bg-rose-950/50 p-4 space-y-3"
             >
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                 <div>
                   <h3
                     id="delete-champ-warning-title"
-                    className="text-sm font-bold text-red-900"
+                    className="text-sm font-bold text-rose-200"
                   >
                     Advertencia: ¿Eliminar campeonato permanentemente?
                   </h3>
-                  <p className="text-xs sm:text-sm text-red-800 mt-1 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-rose-200/90 mt-1 leading-relaxed">
                     Estás a punto de eliminar{' '}
-                    <strong>&ldquo;{confirmDeleteChamp.name}&rdquo;</strong>. Esta acción borrará todos sus equipos, nóminas de jugadores, programación, resultados y noticias asociadas, y no se puede deshacer.
+                    <strong className="text-white">&ldquo;{confirmDeleteChamp.name}&rdquo;</strong>. Esta acción borrará todos sus equipos, nóminas de jugadores, programación, resultados, amonestaciones y noticias asociadas, y no se puede deshacer.
                   </p>
                 </div>
               </div>
@@ -259,7 +258,7 @@ export default function ChampionshipModal({
                   type="button"
                   onClick={() => setConfirmDeleteChamp(null)}
                   disabled={saving}
-                  className="h-9 px-3.5 rounded-xl border border-red-200 bg-white text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="h-9 px-3.5 rounded-xl border border-white/[0.12] bg-[#1E293B] text-xs sm:text-sm font-medium text-[#F8FAFC] hover:bg-[#273549]"
                 >
                   Cancelar
                 </button>
@@ -267,7 +266,7 @@ export default function ChampionshipModal({
                   type="button"
                   onClick={handleConfirmDelete}
                   disabled={saving}
-                  className="h-9 px-4 rounded-xl bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 disabled:opacity-60 inline-flex items-center gap-1.5"
+                  className="h-9 px-4 rounded-xl bg-rose-600 text-white text-xs sm:text-sm font-semibold hover:bg-rose-500 disabled:opacity-60 inline-flex items-center gap-1.5"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? 'Eliminando...' : 'Sí, eliminar campeonato'}</span>
@@ -278,7 +277,7 @@ export default function ChampionshipModal({
 
           {existingChampionships.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-slate-800 mb-2.5">
+              <h3 className="text-sm font-semibold text-[#F8FAFC] mb-2.5">
                 Campeonatos registrados ({existingChampionships.length})
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -290,10 +289,10 @@ export default function ChampionshipModal({
                       key={c.id}
                       className={`p-3.5 rounded-xl border transition-colors flex flex-col justify-between gap-2.5 ${
                         isBeingEdited
-                          ? 'border-amber-400 bg-amber-50/50'
+                          ? 'border-[#06B6D4] bg-[#06B6D4]/10'
                           : isActive
-                          ? 'border-[#0D5C63] bg-teal-50/70'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-[#10B981]/60 bg-[#10B981]/10'
+                          : 'border-white/[0.08] bg-[#0F172A] hover:border-white/20'
                       }`}
                     >
                       <button
@@ -305,26 +304,26 @@ export default function ChampionshipModal({
                         className="text-left w-full"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-semibold text-slate-900 line-clamp-1">
+                          <span className="text-sm font-semibold text-[#F8FAFC] line-clamp-1">
                             {c.name}
                           </span>
                           {isActive && (
-                            <CheckCircle2 className="w-4 h-4 text-[#0D5C63] shrink-0 mt-0.5" />
+                            <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                        <p className="text-xs text-[#94A3B8] mt-1 tabular-nums">
                           {c.sport} · {c.seasonYear} · {c.winPoints}/{c.drawPoints}/{c.lossPoints} pts
                         </p>
                       </button>
 
-                      <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-white/[0.06]">
                         <button
                           type="button"
                           onClick={() => startEditChampionship(c)}
                           title="Editar datos del campeonato"
-                          className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 inline-flex items-center gap-1.5 transition-colors"
+                          className="h-8 px-2.5 rounded-lg border border-white/[0.1] bg-[#1E293B] hover:bg-[#273549] text-xs font-medium text-[#F8FAFC] inline-flex items-center gap-1.5 transition-colors"
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-[#0D5C63]" />
+                          <Edit3 className="w-3.5 h-3.5 text-[#06B6D4]" />
                           <span>Editar</span>
                         </button>
                         <button
@@ -334,7 +333,7 @@ export default function ChampionshipModal({
                             setError(null);
                           }}
                           title="Eliminar campeonato"
-                          className="h-8 px-2.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-xs font-medium text-red-600 inline-flex items-center gap-1.5 transition-colors"
+                          className="h-8 px-2.5 rounded-lg border border-rose-500/30 bg-rose-950/30 hover:bg-rose-950/60 text-xs font-medium text-rose-300 inline-flex items-center gap-1.5 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Eliminar</span>
@@ -347,17 +346,17 @@ export default function ChampionshipModal({
             </div>
           )}
 
-          <div className="border-t border-slate-200 pt-5">
+          <div className="border-t border-white/[0.08] pt-5">
             <div className="flex items-center justify-between gap-3 mb-3">
-              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2">
                 {editingChamp ? (
                   <>
-                    <Edit3 className="w-4 h-4 text-[#0D5C63]" />
+                    <Edit3 className="w-4 h-4 text-[#06B6D4]" />
                     <span>Editando: {editingChamp.name}</span>
                   </>
                 ) : (
                   <>
-                    <FolderPlus className="w-4 h-4 text-[#0D5C63]" />
+                    <FolderPlus className="w-4 h-4 text-[#10B981]" />
                     <span>Crear nuevo campeonato o liga</span>
                   </>
                 )}
@@ -366,7 +365,7 @@ export default function ChampionshipModal({
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="text-xs font-medium text-slate-500 hover:text-slate-800 underline underline-offset-2"
+                  className="text-xs font-medium text-[#06B6D4] hover:text-[#22D3EE] underline underline-offset-2"
                 >
                   Cancelar edición (crear nuevo)
                 </button>
@@ -377,15 +376,15 @@ export default function ChampionshipModal({
               {error && (
                 <div
                   role="alert"
-                  className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800"
+                  className="flex items-start gap-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 p-3 text-sm text-rose-200"
                 >
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                   <span>{error}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#F8FAFC] mb-1">
                   Nombre del campeonato o liga *
                 </label>
                 <input
@@ -393,19 +392,19 @@ export default function ChampionshipModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ej. Campeonato Aniversario U.E. 410 — Fulbito Damas 2026"
-                  className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/25 focus:border-[#0D5C63]"
+                  className="w-full h-11 px-3.5 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#F8FAFC] mb-1">
                     Disciplina
                   </label>
                   <select
                     value={sport}
                     onChange={(e) => setSport(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/25 focus:border-[#0D5C63]"
+                    className="w-full h-11 px-3 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981]"
                   >
                     {SPORTS_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -416,7 +415,7 @@ export default function ChampionshipModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#F8FAFC] mb-1">
                     Año / Edición
                   </label>
                   <input
@@ -425,18 +424,18 @@ export default function ChampionshipModal({
                     max={2035}
                     value={seasonYear}
                     onChange={(e) => setSeasonYear(Number(e.target.value))}
-                    className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/25 focus:border-[#0D5C63]"
+                    className="w-full h-11 px-3.5 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm tabular-nums text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-[#F8FAFC] mb-1">
                     Cupos a Liguilla
                   </label>
                   <select
                     value={liguillaQualifiers}
                     onChange={(e) => setLiguillaQualifiers(Number(e.target.value))}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/25 focus:border-[#0D5C63]"
+                    className="w-full h-11 px-3 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981]"
                   >
                     <option value={2}>Top 2</option>
                     <option value={4}>Top 4</option>
@@ -448,7 +447,7 @@ export default function ChampionshipModal({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#94A3B8] mb-1">
                     Pts. Victoria
                   </label>
                   <input
@@ -457,11 +456,11 @@ export default function ChampionshipModal({
                     max={10}
                     value={winPoints}
                     onChange={(e) => setWinPoints(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm tabular-nums text-slate-900 focus:outline-none focus:border-[#0D5C63]"
+                    className="w-full h-10 px-3 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm tabular-nums text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#94A3B8] mb-1">
                     Pts. Empate
                   </label>
                   <input
@@ -470,11 +469,11 @@ export default function ChampionshipModal({
                     max={5}
                     value={drawPoints}
                     onChange={(e) => setDrawPoints(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm tabular-nums text-slate-900 focus:outline-none focus:border-[#0D5C63]"
+                    className="w-full h-10 px-3 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm tabular-nums text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#94A3B8] mb-1">
                     Pts. Derrota
                   </label>
                   <input
@@ -483,13 +482,13 @@ export default function ChampionshipModal({
                     max={3}
                     value={lossPoints}
                     onChange={(e) => setLossPoints(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-300 text-sm tabular-nums text-slate-900 focus:outline-none focus:border-[#0D5C63]"
+                    className="w-full h-10 px-3 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm tabular-nums text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#F8FAFC] mb-1">
                   Descripción breve (opcional)
                 </label>
                 <input
@@ -497,7 +496,7 @@ export default function ChampionshipModal({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Ej. Torneo interno por el aniversario institucional del Hospital de Quillabamba."
-                  className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0D5C63]/25 focus:border-[#0D5C63]"
+                  className="w-full h-11 px-3.5 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981]"
                 />
               </div>
 
@@ -508,14 +507,14 @@ export default function ChampionshipModal({
                     resetForm();
                     onClose();
                   }}
-                  className="h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="h-11 px-4 rounded-xl border border-white/[0.1] bg-[#1E293B] text-sm font-medium text-[#F8FAFC] hover:bg-[#273549] transition-colors"
                 >
                   Cerrar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="h-11 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F] disabled:opacity-60 transition-colors whitespace-nowrap"
+                  className="h-11 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399] disabled:opacity-60 transition-colors whitespace-nowrap"
                 >
                   {saving
                     ? 'Guardando...'

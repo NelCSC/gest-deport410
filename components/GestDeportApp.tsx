@@ -6,17 +6,20 @@ import { FolderPlus, ShieldCheck, Trophy } from 'lucide-react';
 import { ReactionType } from '@/lib/security';
 import {
   dbCreateChampionship,
+  dbCreateMatchCard,
   dbCreateMatches,
   dbCreateNewsPost,
   dbCreatePlayer,
   dbCreateTeam,
   dbDeleteChampionship,
   dbDeleteMatch,
+  dbDeleteMatchCard,
   dbDeleteNewsPost,
   dbDeletePlayer,
   dbDeleteTeam,
   dbUpdateChampionship,
   dbUpdateMatch,
+  dbUpdateMatchCard,
   dbUpdatePlayer,
   dbUpdateTeam,
   fetchAllDataFromSupabase,
@@ -34,6 +37,7 @@ import {
   AppStateSnapshot,
   Championship,
   Match,
+  MatchCard,
   NewsComment,
   NewsPost,
   Player,
@@ -156,6 +160,9 @@ export default function GestDeportApp() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () =>
           refreshData()
         )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'match_cards' }, () =>
+          refreshData()
+        )
         .subscribe();
 
       return () => {
@@ -255,6 +262,7 @@ export default function GestDeportApp() {
         teams: prev.teams.filter((t) => t.championshipId !== championshipId),
         players: prev.players.filter((p) => p.championshipId !== championshipId),
         matches: prev.matches.filter((m) => m.championshipId !== championshipId),
+        matchCards: prev.matchCards.filter((mc) => mc.championshipId !== championshipId),
         newsPosts: prev.newsPosts.filter((n) => n.championshipId !== championshipId),
         reactions: prev.reactions.filter((r) => !removedPostIds.has(r.postId)),
         comments: prev.comments.filter((c) => !removedPostIds.has(c.postId)),
@@ -302,6 +310,7 @@ export default function GestDeportApp() {
       matches: prev.matches.filter(
         (m) => m.homeTeamId !== teamId && m.awayTeamId !== teamId
       ),
+      matchCards: prev.matchCards.filter((mc) => mc.teamId !== teamId),
     }));
     notify('Equipo eliminado del campeonato.');
   };
@@ -329,6 +338,7 @@ export default function GestDeportApp() {
     updateSnapshot((prev) => ({
       ...prev,
       players: prev.players.filter((p) => p.id !== playerId),
+      matchCards: prev.matchCards.filter((mc) => mc.playerId !== playerId),
     }));
     notify('Jugador retirado de la nómina.');
   };
@@ -363,8 +373,47 @@ export default function GestDeportApp() {
     updateSnapshot((prev) => ({
       ...prev,
       matches: prev.matches.filter((m) => m.id !== matchId),
+      matchCards: prev.matchCards.filter((mc) => mc.matchId !== matchId),
     }));
     notify('Encuentro eliminado de la programación.');
+  };
+
+  // Amonestaciones (Tarjetas amarillas/rojas y regularización)
+  const handleCreateMatchCard = async (
+    input: Omit<MatchCard, 'id' | 'createdAt'>
+  ) => {
+    const created = await dbCreateMatchCard(input);
+    updateSnapshot((prev) => ({
+      ...prev,
+      matchCards: [created, ...prev.matchCards],
+    }));
+    notify(
+      created.cardType === 'amarilla'
+        ? 'Tarjeta amarilla registrada.'
+        : 'Tarjeta roja registrada.'
+    );
+  };
+
+  const handleUpdateMatchCard = async (card: MatchCard) => {
+    await dbUpdateMatchCard(card);
+    updateSnapshot((prev) => ({
+      ...prev,
+      matchCards: prev.matchCards.map((c) => (c.id === card.id ? card : c)),
+    }));
+    notify(
+      card.penaltyRegularized
+        ? 'Penalidad marcada como regularizada.'
+        : 'Penalidad marcada como pendiente.'
+    );
+  };
+
+  const handleDeleteMatchCard = async (cardId: string) => {
+    await dbDeleteMatchCard(cardId);
+    updateSnapshot((prev) => ({
+      ...prev,
+      matchCards: prev.matchCards.filter((c) => c.id !== cardId),
+    }));
+    notify('Amonestación eliminada.');
   };
 
   // Noticias, Reacciones y Comentarios
@@ -562,6 +611,13 @@ export default function GestDeportApp() {
     );
   }, [snapshot, activeChampionship]);
 
+  const scopedMatchCards = useMemo(() => {
+    if (!snapshot || !activeChampionship) return [];
+    return (snapshot.matchCards || []).filter(
+      (c) => c.championshipId === activeChampionship.id
+    );
+  }, [snapshot, activeChampionship]);
+
   const scopedNews = useMemo(() => {
     if (!snapshot || !activeChampionship) return [];
     return snapshot.newsPosts.filter(
@@ -581,13 +637,13 @@ export default function GestDeportApp() {
 
   if (!snapshot) {
     return (
-      <div className="min-h-screen bg-[#F7F9FA]">
-        <div className="h-16 bg-white border-b border-slate-200" />
+      <div className="min-h-screen bg-[#090E17]">
+        <div className="h-16 bg-[#111827] border-b border-white/[0.08]" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-          <div className="h-80 rounded-2xl bg-slate-200/70 animate-pulse" />
+          <div className="h-80 rounded-2xl bg-[#111827] border border-white/[0.06] animate-pulse" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="h-44 rounded-2xl bg-slate-200/70 animate-pulse" />
-            <div className="h-44 rounded-2xl bg-slate-200/70 animate-pulse" />
+            <div className="h-44 rounded-2xl bg-[#111827] border border-white/[0.06] animate-pulse" />
+            <div className="h-44 rounded-2xl bg-[#111827] border border-white/[0.06] animate-pulse" />
           </div>
         </div>
       </div>
@@ -595,7 +651,7 @@ export default function GestDeportApp() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F9FA] pb-16 md:pb-0">
+    <div className="min-h-screen flex flex-col bg-[#090E17] text-[#F8FAFC] pb-16 md:pb-0">
       <HeaderAndNav
         activePage={activePage}
         onNavigate={setActivePage}
@@ -605,18 +661,18 @@ export default function GestDeportApp() {
       />
 
       {/* Sub-barra de contexto institucional y selector de campeonato */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-[#111827] border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3 min-w-0">
-            <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+            <span className="text-xs font-medium text-[#94A3B8] whitespace-nowrap">
               U.E. 410 Hospital de Quillabamba
             </span>
-            <span className="text-slate-300 hidden sm:inline" aria-hidden="true">
+            <span className="text-white/20 hidden sm:inline" aria-hidden="true">
               /
             </span>
             {snapshot.championships.length > 0 && (
               <div className="flex items-center gap-2 min-w-0">
-                <Trophy className="w-4 h-4 text-[#0D5C63] shrink-0" />
+                <Trophy className="w-4 h-4 text-[#10B981] shrink-0" />
                 <label htmlFor="championship-switcher" className="sr-only">
                   Seleccionar campeonato activo
                 </label>
@@ -624,7 +680,7 @@ export default function GestDeportApp() {
                   id="championship-switcher"
                   value={activeChampionship?.id || ''}
                   onChange={(e) => setActiveChampionshipId(e.target.value)}
-                  className="h-9 pl-2.5 pr-7 rounded-lg border border-slate-200 bg-slate-50 text-xs sm:text-sm font-semibold text-slate-900 max-w-[260px] sm:max-w-sm truncate focus:outline-none focus:border-[#0D5C63]"
+                  className="h-9 pl-2.5 pr-7 rounded-lg border border-white/[0.1] bg-[#0F172A] text-xs sm:text-sm font-semibold text-[#F8FAFC] max-w-[260px] sm:max-w-sm truncate focus:outline-none focus:border-[#10B981]"
                 >
                   {snapshot.championships.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -639,7 +695,7 @@ export default function GestDeportApp() {
           <div className="flex items-center gap-3 shrink-0">
             {adminUser ? (
               <>
-                <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-[#0D5C63]">
+                <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-[#10B981]">
                   <ShieldCheck className="w-4 h-4" />
                   <span>Modo Administrador · {adminUser.name}</span>
                 </span>
@@ -649,14 +705,14 @@ export default function GestDeportApp() {
                     setIsPostLoginPrompt(false);
                     setShowChampionshipModal(true);
                   }}
-                  className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  className="h-9 px-3.5 rounded-lg border border-white/[0.1] bg-[#1E293B] hover:bg-[#273549] text-xs font-semibold text-[#F8FAFC] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                 >
-                  <FolderPlus className="w-3.5 h-3.5 text-[#0D5C63]" />
+                  <FolderPlus className="w-3.5 h-3.5 text-[#10B981]" />
                   <span>Gestionar campeonatos</span>
                 </button>
               </>
             ) : (
-              <span className="text-xs text-slate-500 whitespace-nowrap">
+              <span className="text-xs text-[#94A3B8] whitespace-nowrap">
                 Modo Vista Pública
               </span>
             )}
@@ -668,7 +724,7 @@ export default function GestDeportApp() {
       {toastMessage && (
         <div
           role="status"
-          className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 max-w-sm rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150"
+          className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 max-w-sm rounded-xl bg-[#1E293B] border border-[#10B981]/40 text-[#F8FAFC] px-4 py-3 text-sm font-medium shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150"
         >
           {toastMessage}
         </div>
@@ -677,12 +733,12 @@ export default function GestDeportApp() {
       {/* Contenido principal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {!activeChampionship ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-            <Trophy className="w-10 h-10 text-[#0D5C63] mx-auto mb-3" />
-            <h1 className="text-xl font-bold text-slate-900">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111827] p-12 text-center">
+            <Trophy className="w-10 h-10 text-[#10B981] mx-auto mb-3" />
+            <h1 className="text-xl font-bold text-[#F8FAFC]">
               Aún no hay campeonatos registrados
             </h1>
-            <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
+            <p className="text-sm text-[#94A3B8] mt-1 max-w-md mx-auto">
               Inicia sesión como administrador para crear el primer campeonato de aniversario de la U.E. 410 Hospital de Quillabamba.
             </p>
             <button
@@ -690,7 +746,7 @@ export default function GestDeportApp() {
               onClick={() =>
                 adminUser ? setShowChampionshipModal(true) : setShowLoginModal(true)
               }
-              className="mt-5 h-11 px-5 rounded-xl bg-[#0D5C63] text-white text-sm font-semibold hover:bg-[#0A494F]"
+              className="mt-5 h-11 px-5 rounded-xl bg-[#10B981] text-[#022C22] text-sm font-bold hover:bg-[#34D399]"
             >
               {adminUser ? 'Crear campeonato' : 'Ingresar como administrador'}
             </button>
@@ -728,12 +784,17 @@ export default function GestDeportApp() {
                 <ProgramacionView
                   championship={activeChampionship}
                   teams={scopedTeams}
+                  players={scopedPlayers}
                   matches={scopedMatches}
+                  matchCards={scopedMatchCards}
                   standings={standings}
                   adminUser={adminUser}
                   onCreateMatches={handleCreateMatches}
                   onUpdateMatch={handleUpdateMatch}
                   onDeleteMatch={handleDeleteMatch}
+                  onCreateMatchCard={handleCreateMatchCard}
+                  onUpdateMatchCard={handleUpdateMatchCard}
+                  onDeleteMatchCard={handleDeleteMatchCard}
                 />
               )}
 
@@ -742,6 +803,8 @@ export default function GestDeportApp() {
                   championship={activeChampionship}
                   teams={scopedTeams}
                   players={scopedPlayers}
+                  matches={scopedMatches}
+                  matchCards={scopedMatchCards}
                   adminUser={adminUser}
                   onCreateTeam={handleCreateTeam}
                   onUpdateTeam={handleUpdateTeam}
@@ -749,6 +812,7 @@ export default function GestDeportApp() {
                   onCreatePlayer={handleCreatePlayer}
                   onUpdatePlayer={handleUpdatePlayer}
                   onDeletePlayer={handleDeletePlayer}
+                  onUpdateMatchCard={handleUpdateMatchCard}
                 />
               )}
 
@@ -766,8 +830,8 @@ export default function GestDeportApp() {
       </main>
 
       {/* Footer institucional */}
-      <footer className="border-t border-slate-200 bg-white py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <footer className="border-t border-white/[0.08] bg-[#111827] py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#94A3B8]">
           <span>
             Gest-Deport410 · U.E. 410 Hospital de Quillabamba, La Convención, Cusco
           </span>

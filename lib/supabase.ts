@@ -2,8 +2,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   AdminUser,
   AppStateSnapshot,
+  CardType,
   Championship,
   Match,
+  MatchCard,
   NewsComment,
   NewsPost,
   NewsReaction,
@@ -61,6 +63,9 @@ export function loadLocalSnapshot(): AppStateSnapshot {
       newsPosts: parsed.newsPosts || seed.newsPosts,
       reactions: Array.isArray(parsed.reactions) ? parsed.reactions : seed.reactions,
       comments: Array.isArray(parsed.comments) ? parsed.comments : seed.comments,
+      matchCards: Array.isArray(parsed.matchCards)
+        ? parsed.matchCards
+        : seed.matchCards,
     };
   } catch {
     return getInitialSeedData();
@@ -72,7 +77,7 @@ export function saveLocalSnapshot(snapshot: AppStateSnapshot): void {
   try {
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(snapshot));
   } catch {
-    // Ignorar error de cuota si las imágenes locales superan límite
+    // Ignorar error de cuota
   }
 }
 
@@ -95,7 +100,6 @@ export function saveLocalAdminSession(user: AdminUser | null): void {
   }
 }
 
-// Mappers SQL (snake_case) <-> TypeScript (camelCase)
 function mapChampionshipFromDb(row: Record<string, unknown>): Championship {
   return {
     id: String(row.id),
@@ -120,7 +124,7 @@ function mapTeamFromDb(row: Record<string, unknown>): Team {
     championshipId: String(row.championship_id),
     name: String(row.name),
     serviceArea: String(row.service_area ?? ''),
-    primaryColor: String(row.primary_color ?? '#0D5C63'),
+    primaryColor: String(row.primary_color ?? '#10B981'),
     responsible1Name: String(row.responsible_1_name),
     responsible1Phone: String(row.responsible_1_phone ?? ''),
     responsible2Name: String(row.responsible_2_name ?? ''),
@@ -137,7 +141,7 @@ function mapPlayerFromDb(row: Record<string, unknown>): Player {
     fullName: String(row.full_name),
     jerseyNumber: Number(row.jersey_number),
     birthDate: String(row.birth_date),
-    serviceArea: String(row.service_area),
+    serviceArea: String(row.service_area ?? ''),
     photoUrl: String(row.photo_url ?? ''),
     isProvisionalPhoto: Boolean(row.is_provisional_photo),
     createdAt: String(row.created_at ?? new Date().toISOString()),
@@ -200,20 +204,43 @@ function mapCommentFromDb(row: Record<string, unknown>): NewsComment {
   };
 }
 
+function mapMatchCardFromDb(row: Record<string, unknown>): MatchCard {
+  return {
+    id: String(row.id),
+    championshipId: String(row.championship_id),
+    matchId: String(row.match_id),
+    teamId: String(row.team_id),
+    playerId: String(row.player_id),
+    cardType: (row.card_type as CardType) || 'amarilla',
+    penaltyRegularized: Boolean(row.penalty_regularized),
+    notes: String(row.notes ?? ''),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  };
+}
+
 export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | null> {
   const client = getSupabaseClient();
   if (!client) return null;
 
-  const [champRes, teamsRes, playersRes, matchesRes, newsRes, reactionsRes, commentsRes] =
-    await Promise.all([
-      client.from('championships').select('*').order('created_at', { ascending: false }),
-      client.from('teams').select('*').order('created_at', { ascending: true }),
-      client.from('players').select('*').order('jersey_number', { ascending: true }),
-      client.from('matches').select('*').order('scheduled_at', { ascending: true }),
-      client.from('news_posts').select('*').order('published_at', { ascending: false }),
-      client.from('reactions').select('*'),
-      client.from('comments').select('*').order('created_at', { ascending: true }),
-    ]);
+  const [
+    champRes,
+    teamsRes,
+    playersRes,
+    matchesRes,
+    newsRes,
+    reactionsRes,
+    commentsRes,
+    cardsRes,
+  ] = await Promise.all([
+    client.from('championships').select('*').order('created_at', { ascending: false }),
+    client.from('teams').select('*').order('created_at', { ascending: true }),
+    client.from('players').select('*').order('jersey_number', { ascending: true }),
+    client.from('matches').select('*').order('scheduled_at', { ascending: true }),
+    client.from('news_posts').select('*').order('published_at', { ascending: false }),
+    client.from('reactions').select('*'),
+    client.from('comments').select('*').order('created_at', { ascending: true }),
+    client.from('match_cards').select('*').order('created_at', { ascending: false }),
+  ]);
 
   if (champRes.error || teamsRes.error || playersRes.error || matchesRes.error || newsRes.error) {
     throw new Error(
@@ -234,6 +261,7 @@ export async function fetchAllDataFromSupabase(): Promise<AppStateSnapshot | nul
     newsPosts: (newsRes.data || []).map(mapNewsFromDb),
     reactions: reactionsRes.error ? [] : (reactionsRes.data || []).map(mapReactionFromDb),
     comments: commentsRes.error ? [] : (commentsRes.data || []).map(mapCommentFromDb),
+    matchCards: cardsRes.error ? [] : (cardsRes.data || []).map(mapMatchCardFromDb),
   };
 }
 
@@ -443,6 +471,51 @@ export async function dbDeleteMatch(matchId: string): Promise<void> {
   const client = getSupabaseClient();
   if (!client) return;
   const { error } = await client.from('matches').delete().eq('id', matchId);
+  if (error) throw new Error(error.message);
+}
+
+export async function dbCreateMatchCard(
+  input: Omit<MatchCard, 'id' | 'createdAt'>
+): Promise<MatchCard> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { ...input, id: generateId('card'), createdAt: new Date().toISOString() };
+  }
+  const { data, error } = await client
+    .from('match_cards')
+    .insert({
+      championship_id: input.championshipId,
+      match_id: input.matchId,
+      team_id: input.teamId,
+      player_id: input.playerId,
+      card_type: input.cardType,
+      penalty_regularized: input.penaltyRegularized,
+      notes: input.notes,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return mapMatchCardFromDb(data);
+}
+
+export async function dbUpdateMatchCard(card: MatchCard): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { error } = await client
+    .from('match_cards')
+    .update({
+      card_type: card.cardType,
+      penalty_regularized: card.penaltyRegularized,
+      notes: card.notes,
+    })
+    .eq('id', card.id);
+  if (error) throw new Error(error.message);
+}
+
+export async function dbDeleteMatchCard(cardId: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { error } = await client.from('match_cards').delete().eq('id', cardId);
   if (error) throw new Error(error.message);
 }
 

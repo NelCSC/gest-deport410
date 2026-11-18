@@ -110,6 +110,19 @@ create table if not exists public.comments (
   created_at timestamptz not null default now()
 );
 
+-- 8. Amonestaciones (Tarjetas amarillas / rojas y seguimiento de regularización)
+create table if not exists public.match_cards (
+  id uuid primary key default gen_random_uuid(),
+  championship_id uuid not null references public.championships(id) on delete cascade,
+  match_id uuid not null references public.matches(id) on delete cascade,
+  team_id uuid not null references public.teams(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  card_type text not null check (card_type in ('amarilla', 'roja')),
+  penalty_regularized boolean not null default false,
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+
 -- Índices de rendimiento
 create index if not exists idx_teams_championship on public.teams(championship_id);
 create index if not exists idx_players_team on public.players(team_id);
@@ -117,16 +130,17 @@ create index if not exists idx_matches_championship_date on public.matches(champ
 create index if not exists idx_news_championship_date on public.news_posts(championship_id, published_at desc);
 create index if not exists idx_reactions_post on public.reactions(post_id);
 create index if not exists idx_comments_post_date on public.comments(post_id, created_at asc);
+create index if not exists idx_match_cards_champ_team on public.match_cards(championship_id, team_id);
+create index if not exists idx_match_cards_match on public.match_cards(match_id);
 
 -- =============================================================================
 -- Row Level Security (RLS):
 -- 1. Lectura pública para espectadores sin login en todas las tablas.
--- 2. Escritura administrativa (campeonatos, equipos, jugadores, partidos, noticias)
+-- 2. Escritura administrativa (campeonatos, equipos, jugadores, partidos, noticias, tarjetas)
 --    restringida a usuarios autenticados (Admin).
 -- 3. Reacciones y Comentarios públicos:
 --    La escritura se valida estrictamente en el servidor (API Routes de Next.js)
 --    usando SUPABASE_SERVICE_ROLE_KEY (que omite RLS tras validar Honeypot, XSS y Rate Limit).
---    Por seguridad, NO se permite INSERT/UPDATE anónimo directo desde el navegador en RLS.
 -- =============================================================================
 
 alter table public.championships enable row level security;
@@ -136,6 +150,7 @@ alter table public.matches enable row level security;
 alter table public.news_posts enable row level security;
 alter table public.reactions enable row level security;
 alter table public.comments enable row level security;
+alter table public.match_cards enable row level security;
 
 -- Lectura pública (Modo Vista Espectador)
 drop policy if exists "Lectura pública de campeonatos" on public.championships;
@@ -166,6 +181,10 @@ drop policy if exists "Lectura pública de comentarios" on public.comments;
 create policy "Lectura pública de comentarios"
   on public.comments for select using (true);
 
+drop policy if exists "Lectura pública de amonestaciones" on public.match_cards;
+create policy "Lectura pública de amonestaciones"
+  on public.match_cards for select using (true);
+
 -- Políticas de escritura solo para administradores autenticados
 drop policy if exists "Admin gestiona campeonatos" on public.championships;
 create policy "Admin gestiona campeonatos"
@@ -194,6 +213,12 @@ create policy "Admin gestiona encuentros"
 drop policy if exists "Admin gestiona noticias" on public.news_posts;
 create policy "Admin gestiona noticias"
   on public.news_posts for all
+  using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+drop policy if exists "Admin gestiona amonestaciones" on public.match_cards;
+create policy "Admin gestiona amonestaciones"
+  on public.match_cards for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 
@@ -241,5 +266,10 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.comments;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.match_cards;
 exception when duplicate_object then null;
 end $$;
