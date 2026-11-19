@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  CalendarDays,
   CalendarPlus,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Edit3,
   GitBranch,
   MapPin,
@@ -68,6 +71,125 @@ const STAGE_TABS: { id: 'todos' | MatchStage; label: string }[] = [
   { id: 'final', label: 'Finales' },
 ];
 
+const STAGE_ORDER: Record<MatchStage, number> = {
+  todos_contra_todos: 0,
+  liguilla: 1,
+  semifinal: 2,
+  tercer_puesto: 3,
+  final: 4,
+};
+
+interface MatchdayGroup {
+  key: string;
+  label: string;
+  sectionTitle: string;
+  stage: MatchStage;
+  matchday: number;
+  matches: Match[];
+  minTime: number;
+  maxTime: number;
+  dateRangeLabel: string;
+}
+
+function getMatchGroupKey(match: Pick<Match, 'stage' | 'matchday'>): string {
+  return match.stage === 'todos_contra_todos'
+    ? `round:${match.matchday}`
+    : `stage:${match.stage}`;
+}
+
+function formatGroupDateRange(minTime: number, maxTime: number): string {
+  const fmt = new Intl.DateTimeFormat('es-PE', {
+    day: '2-digit',
+    month: 'short',
+  });
+  const start = new Date(minTime);
+  const end = new Date(maxTime);
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+
+  return sameDay ? fmt.format(start) : `${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
+function pickCurrentGroupKey(groups: MatchdayGroup[], nowMs: number): string {
+  if (groups.length === 0) return 'todas';
+
+  const nowDate = new Date(nowMs);
+  const startOfToday = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    nowDate.getDate(),
+    0,
+    0,
+    0,
+    0
+  ).getTime();
+  const endOfToday = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    nowDate.getDate(),
+    23,
+    59,
+    59,
+    999
+  ).getTime();
+
+  // 1. Jornada con partido actualmente En Juego
+  const liveGroup = groups.find((g) =>
+    g.matches.some((m) => m.status === 'en_juego')
+  );
+  if (liveGroup) return liveGroup.key;
+
+  // 2. Jornada con partido programado para hoy (priorizando no finalizados)
+  const todayPending = groups.find((g) =>
+    g.matches.some((m) => {
+      const t = new Date(m.scheduledAt).getTime();
+      return m.status !== 'finalizado' && t >= startOfToday && t <= endOfToday;
+    })
+  );
+  if (todayPending) return todayPending.key;
+
+  const todayAny = groups.find((g) =>
+    g.matches.some((m) => {
+      const t = new Date(m.scheduledAt).getTime();
+      return t >= startOfToday && t <= endOfToday;
+    })
+  );
+  if (todayAny) return todayAny.key;
+
+  // 3. Jornada en curso cuyo rango de partidos activos abarca hoy
+  const activeSpanGroup = groups.find((g) => {
+    const activeTimes = g.matches
+      .filter((m) => m.status !== 'finalizado')
+      .map((m) => new Date(m.scheduledAt).getTime())
+      .filter((t) => !isNaN(t));
+    if (activeTimes.length === 0) return false;
+    const minActive = Math.min(...activeTimes);
+    const maxActive = Math.max(...activeTimes);
+    return minActive <= endOfToday && maxActive >= startOfToday;
+  });
+  if (activeSpanGroup) return activeSpanGroup.key;
+
+  // 4. Próxima jornada más cercana a la fecha actual
+  const upcomingPending = groups.find(
+    (g) => g.maxTime >= startOfToday && g.matches.some((m) => m.status !== 'finalizado')
+  );
+  if (upcomingPending) return upcomingPending.key;
+
+  const anyUpcoming = groups.find((g) => g.maxTime >= startOfToday);
+  if (anyUpcoming) return anyUpcoming.key;
+
+  // 5. Si hay jornadas pendientes pasadas, mostrar la primera sin finalizar
+  const pendingPast = groups.find((g) =>
+    g.matches.some((m) => m.status !== 'finalizado')
+  );
+  if (pendingPast) return pendingPast.key;
+
+  // 6. Si todas finalizaron, mostrar la última jornada disputada
+  return groups[groups.length - 1].key;
+}
+
 export default function ProgramacionView({
   championship,
   teams,
@@ -86,6 +208,8 @@ export default function ProgramacionView({
   onSyncMatchGoals,
 }: ProgramacionViewProps) {
   const [stageFilter, setStageFilter] = useState<'todos' | MatchStage>('todos');
+  const [manualGroupKey, setManualGroupKey] = useState<string | null>(null);
+  const [referenceNow] = useState(() => Date.now());
 
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -148,26 +272,99 @@ export default function ProgramacionView({
   const teamMap = new Map(teams.map((t) => [t.id, t]));
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
-  const filteredMatches = matches
-    .filter((m) => {
-      if (stageFilter === 'todos') return true;
-      if (stageFilter === 'final') {
-        return m.stage === 'final' || m.stage === 'tercer_puesto';
-      }
-      return m.stage === stageFilter;
-    })
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  const stageFilteredMatches = useMemo(
+    () =>
+      matches
+        .filter((m) => {
+          if (stageFilter === 'todos') return true;
+          if (stageFilter === 'final') {
+            return m.stage === 'final' || m.stage === 'tercer_puesto';
+          }
+          return m.stage === stageFilter;
+        })
+        .sort(
+          (a, b) =>
+            new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+        ),
+    [matches, stageFilter]
+  );
 
-  // Agrupar por Etapa + Jornada
-  const groupedMatches = filteredMatches.reduce<Record<string, Match[]>>((acc, m) => {
-    const key =
-      m.stage === 'todos_contra_todos'
-        ? `Todos contra Todos · Jornada ${m.matchday}`
-        : STAGE_LABELS[m.stage];
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(m);
-    return acc;
-  }, {});
+  const availableGroups = useMemo<MatchdayGroup[]>(() => {
+    const map = new Map<string, Match[]>();
+    for (const m of stageFilteredMatches) {
+      const key = getMatchGroupKey(m);
+      const list = map.get(key);
+      if (list) {
+        list.push(m);
+      } else {
+        map.set(key, [m]);
+      }
+    }
+
+    const groups: MatchdayGroup[] = [];
+    for (const [key, list] of map.entries()) {
+      const first = list[0];
+      const times = list
+        .map((m) => new Date(m.scheduledAt).getTime())
+        .filter((t) => !isNaN(t));
+      const minTime = times.length > 0 ? Math.min(...times) : referenceNow;
+      const maxTime = times.length > 0 ? Math.max(...times) : referenceNow;
+      const isRoundRobin = first.stage === 'todos_contra_todos';
+
+      groups.push({
+        key,
+        label: isRoundRobin
+          ? `Jornada ${first.matchday}`
+          : STAGE_LABELS[first.stage],
+        sectionTitle: isRoundRobin
+          ? `Todos contra Todos · Jornada ${first.matchday}`
+          : STAGE_LABELS[first.stage],
+        stage: first.stage,
+        matchday: first.matchday,
+        matches: list,
+        minTime,
+        maxTime,
+        dateRangeLabel: formatGroupDateRange(minTime, maxTime),
+      });
+    }
+
+    groups.sort((a, b) => {
+      const stageDiff = STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage];
+      if (stageDiff !== 0) return stageDiff;
+      if (a.stage === 'todos_contra_todos') {
+        return a.matchday - b.matchday;
+      }
+      return a.minTime - b.minTime;
+    });
+
+    return groups;
+  }, [stageFilteredMatches, referenceNow]);
+
+  const currentDefaultGroupKey = useMemo(
+    () => pickCurrentGroupKey(availableGroups, referenceNow),
+    [availableGroups, referenceNow]
+  );
+
+  const effectiveGroupKey = useMemo(() => {
+    if (availableGroups.length === 0) return 'todas';
+    if (manualGroupKey === 'todas') return 'todas';
+    if (
+      manualGroupKey &&
+      availableGroups.some((g) => g.key === manualGroupKey)
+    ) {
+      return manualGroupKey;
+    }
+    return currentDefaultGroupKey;
+  }, [availableGroups, manualGroupKey, currentDefaultGroupKey]);
+
+  const visibleGroups = useMemo(() => {
+    if (effectiveGroupKey === 'todas') return availableGroups;
+    return availableGroups.filter((g) => g.key === effectiveGroupKey);
+  }, [availableGroups, effectiveGroupKey]);
+
+  const activeGroupIndex = availableGroups.findIndex(
+    (g) => g.key === effectiveGroupKey
+  );
 
   const openCreateModal = () => {
     setFormError(null);
@@ -210,6 +407,7 @@ export default function ProgramacionView({
           notes: notes.trim(),
         },
       ]);
+      setManualGroupKey(getMatchGroupKey({ stage, matchday }));
       setShowCreateModal(false);
       setNotes('');
     } catch (err) {
@@ -233,6 +431,8 @@ export default function ProgramacionView({
         rrVenue.trim() || 'Loza Deportiva U.E. 410'
       );
       await onCreateMatches(fixtures);
+      setStageFilter('todos_contra_todos');
+      setManualGroupKey(null);
       setShowRoundRobinModal(false);
     } finally {
       setSaving(false);
@@ -260,6 +460,7 @@ export default function ProgramacionView({
       await onCreateMatches(res.matches);
       setShowKnockoutModal(false);
       setStageFilter(koTargetStage);
+      setManualGroupKey(null);
     } finally {
       setSaving(false);
     }
@@ -647,29 +848,105 @@ export default function ProgramacionView({
         )}
       </div>
 
-      {/* Filtro segmentado de etapas */}
-      <div className="flex items-center gap-1.5 p-1 bg-[#111827] border border-white/[0.08] rounded-xl overflow-x-auto w-full sm:w-fit">
-        {STAGE_TABS.map((tab) => {
-          const isActive = stageFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setStageFilter(tab.id)}
-              className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
-                isActive
-                  ? 'bg-[#10B981] text-[#022C22] font-bold'
-                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-white/[0.04]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Barra de filtros: Etapas + Selector desplegable de Jornadas */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1 bg-[#111827] border border-white/[0.08] rounded-xl overflow-x-auto w-full lg:w-fit">
+          {STAGE_TABS.map((tab) => {
+            const isActive = stageFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setStageFilter(tab.id);
+                  setManualGroupKey(null);
+                }}
+                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? 'bg-[#10B981] text-[#022C22] font-bold'
+                    : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-white/[0.04]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {availableGroups.length > 0 && (
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            {availableGroups.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const prevIdx =
+                    activeGroupIndex <= 0
+                      ? 0
+                      : activeGroupIndex - 1;
+                  setManualGroupKey(availableGroups[prevIdx].key);
+                }}
+                disabled={effectiveGroupKey === 'todas' || activeGroupIndex <= 0}
+                aria-label="Jornada anterior"
+                className="h-10 w-10 rounded-xl border border-white/[0.1] bg-[#111827] text-[#CBD5E1] hover:text-[#F8FAFC] hover:bg-[#1E293B] disabled:opacity-40 flex items-center justify-center shrink-0 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+
+            <div className="relative flex-1 lg:flex-initial lg:min-w-[290px]">
+              <CalendarDays className="w-4 h-4 text-[#10B981] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <label htmlFor="matchday-selector" className="sr-only">
+                Seleccionar jornada
+              </label>
+              <select
+                id="matchday-selector"
+                value={effectiveGroupKey}
+                onChange={(e) => setManualGroupKey(e.target.value)}
+                className="w-full h-10 pl-9 pr-4 rounded-xl border border-white/[0.1] bg-[#111827] text-xs sm:text-sm font-semibold text-[#F8FAFC] focus:outline-none focus:border-[#10B981]"
+              >
+                {availableGroups.map((group) => {
+                  const isCurrent = group.key === currentDefaultGroupKey;
+                  return (
+                    <option key={group.key} value={group.key}>
+                      {group.label}
+                      {isCurrent ? ' (Actual)' : ''} · {group.dateRangeLabel}
+                    </option>
+                  );
+                })}
+                {availableGroups.length > 1 && (
+                  <option value="todas">
+                    Todas las jornadas ({stageFilteredMatches.length} partidos)
+                  </option>
+                )}
+              </select>
+            </div>
+
+            {availableGroups.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const nextIdx =
+                    activeGroupIndex < 0
+                      ? 0
+                      : Math.min(availableGroups.length - 1, activeGroupIndex + 1);
+                  setManualGroupKey(availableGroups[nextIdx].key);
+                }}
+                disabled={
+                  effectiveGroupKey === 'todas' ||
+                  activeGroupIndex >= availableGroups.length - 1
+                }
+                aria-label="Jornada siguiente"
+                className="h-10 w-10 rounded-xl border border-white/[0.1] bg-[#111827] text-[#CBD5E1] hover:text-[#F8FAFC] hover:bg-[#1E293B] disabled:opacity-40 flex items-center justify-center shrink-0 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Listado de encuentros estilo centro deportivo */}
-      {Object.keys(groupedMatches).length === 0 ? (
+      {visibleGroups.length === 0 ? (
         <div className="rounded-2xl border border-white/[0.08] bg-[#111827] p-10 text-center">
           <CalendarPlus className="w-8 h-8 text-[#94A3B8] mx-auto mb-2" />
           <h3 className="text-base font-semibold text-[#F8FAFC]">
@@ -683,19 +960,29 @@ export default function ProgramacionView({
         </div>
       ) : (
         <div className="space-y-8">
-          {Object.entries(groupedMatches).map(([groupTitle, groupList]) => (
-            <section key={groupTitle} className="space-y-3">
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                <h2 className="text-base sm:text-lg font-bold text-[#F8FAFC]">
-                  {groupTitle}
-                </h2>
-                <span className="text-xs text-[#94A3B8] tabular-nums">
-                  {groupList.length} {groupList.length === 1 ? 'encuentro' : 'encuentros'}
-                </span>
-              </div>
+          {visibleGroups.map((group) => {
+            const isCurrentGroup = group.key === currentDefaultGroupKey;
+            return (
+              <section key={group.key} className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] pb-2">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h2 className="text-base sm:text-lg font-bold text-[#F8FAFC]">
+                      {group.sectionTitle}
+                    </h2>
+                    {isCurrentGroup && (
+                      <span className="text-xs font-semibold text-[#10B981]">
+                        · Jornada actual
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-[#94A3B8] tabular-nums">
+                    {group.dateRangeLabel} · {group.matches.length}{' '}
+                    {group.matches.length === 1 ? 'encuentro' : 'encuentros'}
+                  </span>
+                </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-                {groupList.map((match) => {
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                  {group.matches.map((match) => {
                   const home = teamMap.get(match.homeTeamId);
                   const away = teamMap.get(match.awayTeamId);
                   const isFinished = match.status === 'finalizado';
@@ -873,7 +1160,8 @@ export default function ProgramacionView({
                 })}
               </div>
             </section>
-          ))}
+            );
+          })}
         </div>
       )}
 
