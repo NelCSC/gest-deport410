@@ -65,7 +65,7 @@ export default function LoginModal({
         if (authError || !data.user) {
           setError(
             authError?.message === 'Invalid login credentials'
-              ? 'Credenciales incorrectas. Verifica tu correo y contraseña en Supabase Auth.'
+              ? 'Credenciales incorrectas. Verifica tu correo y contraseña ✌️.'
               : authError?.message || 'No se pudo iniciar sesión. Intenta nuevamente.'
           );
           setLoading(false);
@@ -195,7 +195,7 @@ export default function LoginModal({
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@hospitalquillabamba.gob.pe"
+              placeholder="Ingrese Usuario o Correo aquí"
               className="w-full h-11 px-3.5 rounded-xl bg-[#0F172A] border border-white/[0.1] text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 focus:border-[#10B981] transition-colors"
             />
           </div>
