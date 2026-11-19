@@ -4,16 +4,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   Calendar,
   Camera,
   Clock,
   ImagePlus,
+  ListOrdered,
   MapPin,
   MessageSquare,
   Move,
   RotateCcw,
   Send,
   Trash2,
+  Trophy,
   X,
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -373,41 +376,147 @@ export default function InicioView({
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      {/* Hero Institucional U.E 410: Portada principal completa en móvil y panorámica en escritorio */}
-      <section className="-mx-4 -mt-6 sm:mx-0 sm:mt-0 sm:rounded-2xl overflow-hidden border-b sm:border border-white/[0.08] bg-[#111827]">
-        <div className="relative w-full sm:h-[410px] lg:h-[440px] bg-[#090E17]">
-          <div className="relative w-full sm:h-full bg-[#090E17]">
+      {/* Hero Institucional U.E 410: Portada geométrica diagonal en móvil y escritorio */}
+      <section className="-mx-4 -mt-6 sm:mx-0 sm:mt-0 sm:rounded-2xl overflow-hidden border-b sm:border border-white/[0.08] bg-[#111827] shadow-2xl">
+        <div className="relative w-full min-h-[225px] sm:min-h-[300px] md:min-h-[405px] lg:min-h-[435px] bg-[#090E17] overflow-hidden flex items-stretch">
+          {/* Capa de fotografía: integrada a la derecha con bandas diagonales en todas las vistas */}
+          <div className="absolute inset-y-0 right-0 w-[60%] sm:w-[62%] lg:w-[60%] bg-[#090E17] overflow-hidden">
             <SafeImage
               src={championship.heroImageUrl || '/images/hero-hospital-stadium.jpg'}
-              alt="Campeonato Interno de Aniversario U.E 410 Hospital de Quillabamba"
-              className="block w-full h-auto max-h-[440px] sm:max-h-none sm:h-full object-contain sm:object-cover mx-auto transition-all duration-300"
+              alt={championship.name}
+              className="w-full h-full object-cover transition-all duration-300"
               style={{ objectPosition: championship.heroImagePosition || '50% 50%' }}
             />
-            <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-[#090E17] via-[#090E17]/55 to-[#090E17]/15 pointer-events-none" />
+
+            {/* Sombras envolventes y bandas diagonales translúcidas sobre la fotografía */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#090E17]/85 via-[#064E3B]/20 to-[#06B6D4]/10 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#090E17]/80 via-transparent to-[#090E17]/20 pointer-events-none" />
+            <div
+              className="absolute inset-y-0 left-[2%] w-16 sm:w-28 md:w-40 -skew-x-[16deg] bg-gradient-to-b from-[#10B981]/30 via-[#06B6D4]/15 to-[#090E17]/40 pointer-events-none"
+              aria-hidden="true"
+            />
+            <div
+              className="absolute inset-y-0 left-[14%] w-8 sm:w-14 md:w-20 -skew-x-[16deg] bg-gradient-to-b from-white/[0.14] via-white/[0.04] to-transparent pointer-events-none"
+              aria-hidden="true"
+            />
+            <div
+              className="hidden sm:block absolute inset-y-0 left-[23%] w-20 md:w-28 -skew-x-[16deg] bg-gradient-to-b from-[#06B6D4]/15 via-transparent to-[#10B981]/15 pointer-events-none"
+              aria-hidden="true"
+            />
+
+            {/* Acentos geométricos en esquina inferior derecha + sello de disciplina y edición */}
+            <div
+              className="absolute bottom-0 right-0 w-24 sm:w-36 md:w-44 h-2 md:h-2.5 opacity-80 pointer-events-none"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(-55deg, rgba(16,185,129,0.7) 0px, rgba(16,185,129,0.7) 5px, transparent 5px, transparent 11px)',
+              }}
+              aria-hidden="true"
+            />
+
+            <div className="flex items-end gap-2 sm:gap-3 absolute bottom-2.5 right-3 sm:bottom-4 sm:right-5 md:bottom-5 md:right-6 z-20 pointer-events-none">
+              <div className="relative flex flex-col items-end pr-2 sm:pr-3 md:pr-3.5 border-r-[2.5px] sm:border-r-[3px] border-[#F8FAFC] text-right">
+                <span className="font-display text-[11px] sm:text-sm md:text-base lg:text-lg font-extrabold tracking-tight uppercase text-[#F8FAFC] leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                  {championship.sport}
+                </span>
+                <span className="mt-1 sm:mt-1.5 inline-block bg-gradient-to-r from-transparent via-[#F8FAFC]/95 to-[#F8FAFC] text-[#090E17] font-extrabold text-[9px] sm:text-[11px] lg:text-xs tracking-[0.12em] sm:tracking-[0.14em] uppercase pl-3 sm:pl-6 pr-1.5 sm:pr-2.5 py-0.5 tabular-nums shadow-lg">
+                  Edición {championship.seasonYear}
+                </span>
+              </div>
+            </div>
 
             {adminUser && (
               <button
                 type="button"
                 onClick={openCoverEditor}
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 min-h-[36px] sm:min-h-[40px] px-3 sm:px-3.5 rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/35 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 sm:gap-2 transition-colors"
+                className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-30 min-h-[32px] sm:min-h-[40px] px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/40 backdrop-blur-sm text-[11px] sm:text-sm font-medium inline-flex items-center gap-1.5 sm:gap-2 transition-colors shadow-lg"
               >
-                <Camera className="w-4 h-4 text-[#10B981]" />
-                <span className="sm:hidden">Cambiar portada</span>
+                <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]" />
+                <span className="sm:hidden">Portada</span>
                 <span className="hidden sm:inline">Cambiar y posicionar portada</span>
               </button>
             )}
           </div>
 
-          <div className="relative sm:absolute sm:inset-x-0 sm:bottom-0 p-4 sm:p-8 lg:p-10 bg-[#111827] sm:bg-transparent border-t sm:border-t-0 border-white/[0.08] text-[#F8FAFC]">
-            <p className="text-xs sm:text-sm font-semibold text-[#10B981] tracking-wide mb-1.5">
-              U.E 410 Hospital de Quillabamba · Temporada {championship.seasonYear}
-            </p>
-            <h1 className="text-2xl sm:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-[1.12] max-w-3xl text-balance text-[#F8FAFC]">
-              {championship.name}
-            </h1>
-            <p className="text-xs sm:text-base text-[#CBD5E1] mt-2 max-w-2xl line-clamp-2">
-              {championship.description}
-            </p>
+          {/* Panel izquierdo oscuro con corte en ángulo tipo chevron y sombras facetadas */}
+          <div className="relative z-10 w-[57%] sm:w-[54%] lg:w-[52%] flex items-stretch drop-shadow-[8px_0_18px_rgba(0,0,0,0.85)] md:drop-shadow-[14px_0_28px_rgba(0,0,0,0.85)]">
+            {/* Borde luminoso esmeralda-cian en el corte angular */}
+            <div
+              className="absolute inset-0 bg-gradient-to-b from-[#10B981] via-[#34D399] to-[#06B6D4] [clip-path:polygon(0_0,100%_0,85%_60%,100%_100%,0_100%)] pointer-events-none"
+              aria-hidden="true"
+            />
+
+            {/* Superficie oscura facetada principal */}
+            <div className="relative w-full mr-[6px] sm:mr-[10px] md:mr-[12px] bg-gradient-to-br from-[#060E1A] via-[#0B1626] to-[#072026] [clip-path:polygon(0_0,100%_0,85%_60%,100%_100%,0_100%)] overflow-hidden flex">
+              {/* Facetas geométricas sutiles de fondo */}
+              <div
+                className="absolute -top-8 right-6 sm:right-12 w-28 sm:w-40 h-28 sm:h-40 bg-[#10B981]/[0.08] [clip-path:polygon(50%_0,100%_100%,0_70%)] pointer-events-none"
+                aria-hidden="true"
+              />
+              <div
+                className="absolute bottom-0 left-0 w-32 sm:w-44 h-24 sm:h-36 bg-[#06B6D4]/[0.07] [clip-path:polygon(0_20%,100%_100%,0_100%)] pointer-events-none"
+                aria-hidden="true"
+              />
+              <div
+                className="hidden sm:block absolute -bottom-10 right-20 w-36 h-36 bg-[#10B981]/[0.07] [clip-path:polygon(40%_0,100%_75%,10%_100%)] pointer-events-none"
+                aria-hidden="true"
+              />
+
+              {/* Contenido ordenado con los datos esenciales en móvil y completos en escritorio */}
+              <div className="relative z-10 w-full px-3.5 py-4 pr-8 sm:px-6 sm:py-6 sm:pr-14 md:py-8 md:pl-8 md:pr-20 lg:py-9 lg:pl-10 lg:pr-24 flex flex-col justify-between gap-2.5 sm:gap-4 md:gap-5">
+                {/* Marca institucional superior (visible en tablet/escritorio para no duplicar logo en móvil) */}
+                <div className="hidden sm:flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#10B981]/15 border border-[#10B981]/40 flex items-center justify-center shrink-0">
+                    <Trophy className="w-4 h-4 text-[#10B981]" />
+                  </div>
+                  <span className="font-display text-xs sm:text-sm font-extrabold tracking-[0.14em] uppercase text-[#F8FAFC]">
+                    Gest-Deport410
+                  </span>
+                </div>
+
+                {/* Disciplina + Nombre del Campeonato + Descripción */}
+                <div className="space-y-1 sm:space-y-2 my-auto sm:my-0">
+                  <p className="font-display text-[11px] sm:text-base md:text-lg lg:text-xl font-extrabold tracking-[0.06em] uppercase text-[#10B981] leading-none">
+                    {championship.sport}
+                  </p>
+                  <h1 className="font-display text-[17px] sm:text-2xl md:text-3xl lg:text-[34px] font-extrabold tracking-tight leading-[1.1] sm:leading-[1.08] text-balance text-[#F8FAFC] drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]">
+                    {championship.name}
+                  </h1>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-[#CBD5E1] leading-snug sm:leading-relaxed max-w-md line-clamp-2 md:line-clamp-3 pt-0.5">
+                    {championship.description}
+                  </p>
+                </div>
+
+                {/* Reglas de puntaje y clasificación (sm+) + pie institucional */}
+                <div className="space-y-2 sm:space-y-3 pt-0.5 sm:pt-1">
+                  <div className="hidden sm:flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-[#F8FAFC]">
+                    <span className="inline-flex items-center gap-2 tabular-nums">
+                      <span className="w-6 h-6 rounded-full bg-[#10B981]/15 border border-[#10B981]/35 flex items-center justify-center shrink-0">
+                        <Award className="w-3.5 h-3.5 text-[#10B981]" />
+                      </span>
+                      <span>
+                        {championship.winPoints} / {championship.drawPoints} /{' '}
+                        {championship.lossPoints} pts
+                      </span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 tabular-nums">
+                      <span className="w-6 h-6 rounded-full bg-[#06B6D4]/15 border border-[#06B6D4]/35 flex items-center justify-center shrink-0">
+                        <ListOrdered className="w-3.5 h-3.5 text-[#06B6D4]" />
+                      </span>
+                      <span>Top {championship.liguillaQualifiers} a Liguilla</span>
+                    </span>
+                  </div>
+
+                  <p className="font-display text-[9px] sm:text-[11px] md:text-xs font-bold tracking-[0.08em] sm:tracking-[0.12em] uppercase text-[#94A3B8] tabular-nums leading-tight">
+                    <span className="sm:hidden">U.E. 410 H.Q. · {championship.seasonYear}</span>
+                    <span className="hidden sm:inline">
+                      U.E. 410 Hospital de Quillabamba · {championship.seasonYear}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1065,25 +1174,36 @@ export default function InicioView({
               {/* Vista previa en vivo del encuadre */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-[#CBD5E1]">
-                  Vista previa en escritorio ({coverPosX}% horizontal · {coverPosY}% vertical)
+                  Vista previa del encuadre ({coverPosX}% horizontal · {coverPosY}% vertical)
                 </p>
-                <div className="relative h-56 sm:h-64 w-full rounded-[12px] overflow-hidden border-[1.5px] border-[#10B981]/30 bg-[#1E293B]">
-                  <img
-                    src={coverPreviewUrl || '/images/hero-hospital-stadium.jpg'}
-                    alt="Vista previa de portada"
-                    className="w-full h-full object-cover"
-                    style={{ objectPosition: `${coverPosX}% ${coverPosY}%` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#090E17]/90 via-[#090E17]/40 to-transparent pointer-events-none" />
-                  <div className="absolute bottom-4 left-4 right-4 text-[#F8FAFC] pointer-events-none">
-                    <p className="text-xs text-[#10B981] font-semibold">
-                      U.E. 410 Hospital de Quillabamba
-                    </p>
-                    <p className="text-base font-bold truncate">{championship.name}</p>
+                <div className="relative h-52 sm:h-60 w-full rounded-[12px] overflow-hidden border-[1.5px] border-[#10B981]/30 bg-[#090E17]">
+                  <div className="absolute inset-y-0 right-0 w-[64%] overflow-hidden">
+                    <img
+                      src={coverPreviewUrl || '/images/hero-hospital-stadium.jpg'}
+                      alt="Vista previa de portada"
+                      className="w-full h-full object-cover"
+                      style={{ objectPosition: `${coverPosX}% ${coverPosY}%` }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-[#090E17]/80 via-[#064E3B]/20 to-[#06B6D4]/10 pointer-events-none" />
+                    <div className="absolute inset-y-0 left-[6%] w-16 -skew-x-[16deg] bg-[#10B981]/25 pointer-events-none" />
+                  </div>
+                  <div className="absolute inset-y-0 left-0 w-[52%] pointer-events-none">
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#10B981] to-[#06B6D4] [clip-path:polygon(0_0,100%_0,86%_62%,100%_100%,0_100%)]" />
+                    <div className="absolute inset-y-0 left-0 right-[8px] bg-gradient-to-br from-[#060E1A] via-[#0B1626] to-[#072026] [clip-path:polygon(0_0,100%_0,86%_62%,100%_100%,0_100%)] p-4 pr-10 flex flex-col justify-center gap-1.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#10B981]">
+                        {championship.sport}
+                      </span>
+                      <p className="text-sm sm:text-base font-extrabold text-[#F8FAFC] leading-tight line-clamp-2">
+                        {championship.name}
+                      </p>
+                      <span className="text-[10px] font-semibold text-[#94A3B8] tabular-nums">
+                        U.E. 410 · {championship.seasonYear}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <p className="text-[11px] text-[#94A3B8]">
-                  En celulares y pantallas pequeñas, la foto se ajusta al ancho completo para mostrarse entera sin recortes.
+                  Este diseño diagonal y el punto de encuadre se aplican tanto en escritorio como en dispositivos móviles.
                 </p>
               </div>
 

@@ -8,6 +8,7 @@ import {
   ListOrdered,
   LogIn,
   LogOut,
+  Trophy,
   Users,
 } from 'lucide-react';
 import { AdminUser, AppPage } from '@/lib/types';
@@ -46,9 +47,32 @@ export default function HeaderAndNav({
           <button
             type="button"
             onClick={() => onNavigate('inicio')}
-            className="text-lg sm:text-xl font-extrabold tracking-tight text-[#F8FAFC] hover:text-[#10B981] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#10B981] rounded-md"
+            className="group flex items-center gap-2.5 sm:gap-3 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#10B981] rounded-xl py-1 pr-1"
           >
-            Gest-Deport410
+            <span
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#10B981] via-[#059669] to-[#06B6D4] p-[1.5px] shadow-[0_0_16px_rgba(16,185,129,0.28)] group-hover:shadow-[0_0_22px_rgba(16,185,129,0.45)] transition-shadow shrink-0"
+              aria-hidden="true"
+            >
+              <span className="w-full h-full rounded-[10px] bg-gradient-to-br from-[#0F172A] via-[#090E17] to-[#071D24] flex items-center justify-center relative overflow-hidden">
+                <span className="absolute -right-2 -top-2 w-6 h-12 rotate-[24deg] bg-gradient-to-b from-[#10B981]/30 via-[#06B6D4]/15 to-transparent" />
+                <Trophy className="w-[18px] h-[18px] sm:w-5 sm:h-5 text-[#10B981] stroke-[2.2] relative z-10 group-hover:scale-105 transition-transform" />
+              </span>
+            </span>
+
+            <span className="flex flex-col items-start">
+              <span className="font-display text-lg sm:text-xl font-extrabold tracking-tight leading-none flex items-baseline">
+                <span className="text-[#F8FAFC] group-hover:text-white transition-colors">
+                  Gest-Deport
+                </span>
+                <span className="bg-gradient-to-r from-[#10B981] to-[#22D3EE] bg-clip-text text-transparent tabular-nums">
+                  410
+                </span>
+              </span>
+              <span
+                className="h-[2px] w-10 group-hover:w-full bg-gradient-to-r from-[#10B981] via-[#06B6D4] to-transparent rounded-full mt-1 transition-all duration-300"
+                aria-hidden="true"
+              />
+            </span>
           </button>
 
           <nav
