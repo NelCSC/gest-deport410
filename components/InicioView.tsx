@@ -373,29 +373,32 @@ export default function InicioView({
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      {/* Hero Institucional U.E 410: Portada principal al frente en móvil y escritorio */}
+      {/* Hero Institucional U.E 410: Portada principal completa en móvil y panorámica en escritorio */}
       <section className="-mx-4 -mt-6 sm:mx-0 sm:mt-0 sm:rounded-2xl overflow-hidden border-b sm:border border-white/[0.08] bg-[#111827]">
-        <div className="relative h-[360px] sm:h-[410px] lg:h-[440px] w-full bg-[#1E293B]">
-          <SafeImage
-            src={championship.heroImageUrl || '/images/hero-hospital-stadium.jpg'}
-            alt="Campeonato Interno de Aniversario U.E 410 Hospital de Quillabamba"
-            className="w-full h-full object-cover transition-all duration-300"
-            style={{ objectPosition: championship.heroImagePosition || '50% 50%' }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#090E17] via-[#090E17]/55 to-[#090E17]/15" />
+        <div className="relative w-full sm:h-[410px] lg:h-[440px] bg-[#090E17]">
+          <div className="relative w-full sm:h-full bg-[#090E17]">
+            <SafeImage
+              src={championship.heroImageUrl || '/images/hero-hospital-stadium.jpg'}
+              alt="Campeonato Interno de Aniversario U.E 410 Hospital de Quillabamba"
+              className="block w-full h-auto max-h-[440px] sm:max-h-none sm:h-full object-contain sm:object-cover mx-auto transition-all duration-300"
+              style={{ objectPosition: championship.heroImagePosition || '50% 50%' }}
+            />
+            <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-[#090E17] via-[#090E17]/55 to-[#090E17]/15 pointer-events-none" />
 
-          {adminUser && (
-            <button
-              type="button"
-              onClick={openCoverEditor}
-              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 min-h-[40px] px-3.5 rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/35 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
-            >
-              <Camera className="w-4 h-4 text-[#10B981]" />
-              <span>Cambiar y posicionar portada</span>
-            </button>
-          )}
+            {adminUser && (
+              <button
+                type="button"
+                onClick={openCoverEditor}
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 min-h-[36px] sm:min-h-[40px] px-3 sm:px-3.5 rounded-xl bg-[#090E17]/80 hover:bg-[#090E17] text-[#F8FAFC] border border-[#10B981]/35 backdrop-blur-sm text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 sm:gap-2 transition-colors"
+              >
+                <Camera className="w-4 h-4 text-[#10B981]" />
+                <span className="sm:hidden">Cambiar portada</span>
+                <span className="hidden sm:inline">Cambiar y posicionar portada</span>
+              </button>
+            )}
+          </div>
 
-          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 lg:p-10 text-[#F8FAFC]">
+          <div className="relative sm:absolute sm:inset-x-0 sm:bottom-0 p-4 sm:p-8 lg:p-10 bg-[#111827] sm:bg-transparent border-t sm:border-t-0 border-white/[0.08] text-[#F8FAFC]">
             <p className="text-xs sm:text-sm font-semibold text-[#10B981] tracking-wide mb-1.5">
               U.E 410 Hospital de Quillabamba · Temporada {championship.seasonYear}
             </p>
@@ -1062,7 +1065,7 @@ export default function InicioView({
               {/* Vista previa en vivo del encuadre */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-[#CBD5E1]">
-                  Vista previa en tiempo real ({coverPosX}% horizontal · {coverPosY}% vertical)
+                  Vista previa en escritorio ({coverPosX}% horizontal · {coverPosY}% vertical)
                 </p>
                 <div className="relative h-56 sm:h-64 w-full rounded-[12px] overflow-hidden border-[1.5px] border-[#10B981]/30 bg-[#1E293B]">
                   <img
@@ -1079,6 +1082,9 @@ export default function InicioView({
                     <p className="text-base font-bold truncate">{championship.name}</p>
                   </div>
                 </div>
+                <p className="text-[11px] text-[#94A3B8]">
+                  En celulares y pantallas pequeñas, la foto se ajusta al ancho completo para mostrarse entera sin recortes.
+                </p>
               </div>
 
               {/* Subir imagen o restaurar */}
